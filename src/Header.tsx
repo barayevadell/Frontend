@@ -8,10 +8,12 @@ const Header: React.FC = () => {
         color: "white",
         padding: "1rem",
         textAlign: "center",
+        width: "100%",
+        alignSelf: "stretch",
       }}
     >
       <h1 style={{ margin: 0, fontSize: "2rem" }}>
-        ברוכה הבאה לאתר של אדל ואאליטה ✨
+        רשימת משתמשים 
       </h1>
     </header>
   );

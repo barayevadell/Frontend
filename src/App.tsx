@@ -1,19 +1,35 @@
+import React from "react";
 import Header from "./Header";
 import Footer from "./Footer";
+import StudentsTable from "./StudentsTable";
 
 function App() {
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "100vh"
-    }}>
+    <div
+      dir="rtl"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+      }}
+    >
       <Header />
-      
-      {/* אזור התוכן */}
-      <main style={{ flex: 1, padding: "2rem", textAlign: "center" }}>
-        <h1>ברוכה הבאה!</h1>
-        <p>כאן יהיה התוכן של האפליקציה שלך ✨</p>
+
+      <main
+        style={{
+          flex: 1,
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",     // מרכז אופקי של הקונטיינר הפנימי
+          alignItems: "flex-start",
+          padding: "2rem 1rem 5rem",    // רווח לפוטר הקבוע
+          boxSizing: "border-box",
+        }}
+      >
+        {/* קונטיינר רוחב קבוע שמרכז את הטבלה */}
+        <div style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}>
+          <StudentsTable />
+        </div>
       </main>
 
       <Footer />
