@@ -1,53 +1,90 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import User from "./User"; // Import the User class (make sure the path is correct)
 
-const StudentsTable = () => {
-  // Initial list of students (default data)
-  const [students, setStudents] = useState([
-    { id: 213233047, name: "אדל בר", email: "adell.bar@example.com", role: "סטודנט" },
-    { id: 213803048, name: "גל אסרף", email: "gal.asraf@example.com", role: "סטודנט" },
-    { id: 313233049, name: "רן בר", email: "ran.bar@example.com", role: "סטודנט" },
-    { id: 313295649, name: "אריה כהן", email: "arya.cohen@example.com", role: "מנהל" },
-    { id: 313234549, name: "אביב לוי", email: "aviv.levi@example.com", role: "מנהל" },
-    { id: 313239049, name: "אורלי ישראלי", email: "orly.israeli@example.com", role: "מנהל" },
-  ]);
+const STORAGE_KEY = "students_v1";
 
-  // Function to add a random student to the table
+/** Returns the 6 default rows when no data exists in localStorage */
+function getInitialStudents(): User[] {
+  return [
+    new User(213233047, "אדל בר", "adell.bar@example.com", "סטודנט"),
+    new User(213803048, "גל אסרף", "gal.asraf@example.com", "סטודנט"),
+    new User(313233049, "רן בר", "ran.bar@example.com", "סטודנט"),
+    new User(313295649, "אריה כהן", "arya.cohen@example.com", "מנהל"),
+    new User(313234549, "אביב לוי", "aviv.levi@example.com", "מנהל"),
+    new User(313239049, "אורלי ישראלי", "orly.israeli@example.com", "מנהל"),
+  ];
+}
+
+const StudentsTable: React.FC = () => {
+  // State that holds an array of User objects
+  const [students, setStudents] = useState<User[]>([]);
+
+  // Load from localStorage on first render; if nothing (or empty), fallback to default 6 rows
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        setStudents(getInitialStudents());
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setStudents(getInitialStudents());
+        return;
+      }
+      // Convert plain objects to User instances
+      setStudents(parsed.map((o: any) => User.from(o)));
+    } catch {
+      // On any error, start with default rows
+      setStudents(getInitialStudents());
+    }
+  }, []);
+
+  // Auto-save to localStorage whenever students changes (useful, but the exercise also asks for a manual button)
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(students.map((s) => s.toJSON())));
+  }, [students]);
+
+  // Adds a random student to the state
   const addRandomStudent = () => {
     // Generate a random 9-digit ID
-    const randomId = Math.floor(100000000 + Math.random() * 900000000);
+    const id = Math.floor(100000000 + Math.random() * 900000000);
 
-    // Arrays of Hebrew first and last names
+    // Hebrew names
     const firstNames = ["דנה", "יואב", "נועה", "איתי", "מאיה", "אדם", "יעל", "ליאור"];
     const lastNames = ["כהן", "לוי", "ברק", "רוזן", "שחר", "גולדמן", "אורן", "פרץ"];
 
-    // Arrays of English transliterations for the same names (same indexes)
-    const firstNamesEng = ["dana", "yoav", "noa", "itai", "maya", "adam", "yael", "lior"];
-    const lastNamesEng = ["cohen", "levi", "barak", "rozen", "shahar", "goldman", "oren", "peretz"];
+    // English transliterations (same indexes)
+    const firstEn = ["dana", "yoav", "noa", "itai", "maya", "adam", "yael", "lior"];
+    const lastEn = ["cohen", "levi", "barak", "rozen", "shahar", "goldman", "oren", "peretz"];
 
-    // Pick a random first and last name index
-    const firstIndex = Math.floor(Math.random() * firstNames.length);
-    const lastIndex = Math.floor(Math.random() * lastNames.length);
+    // Pick random indexes
+    const i = Math.floor(Math.random() * firstNames.length);
+    const j = Math.floor(Math.random() * lastNames.length);
 
-    // Combine Hebrew full name
-    const fullNameHeb = `${firstNames[firstIndex]} ${lastNames[lastIndex]}`;
+    // Build name + email
+    const name = `${firstNames[i]} ${lastNames[j]}`;
+    const email = `${firstEn[i]}.${lastEn[j]}${Math.floor(Math.random() * 100)}@example.com`;
 
-    // Create an email in English based on transliteration + random number
-    const email = `${firstNamesEng[firstIndex]}.${lastNamesEng[lastIndex]}${Math.floor(Math.random() * 100)}@example.com`;
+    // Random role
+    const role = Math.random() > 0.5 ? "סטודנט" : "מנהל";
 
-    // Create new student object
-    const newStudent = {
-      id: randomId,
-      name: fullNameHeb,
-      email: email,
-      role: Math.random() > 0.5 ? "סטודנט" : "מנהל",
-    };
+    // Create a new User and append immutably
+    const newUser = new User(id, name, email, role);
+    setStudents((prev) => [...prev, newUser]);
+  };
 
-    // Add new student to the existing list
-    setStudents([...students, newStudent]);
+  // Manual save button handler (explicit save per the exercise instructions)
+  const saveToLocalStorage = () => {
+    const json = JSON.stringify(students.map((s) => s.toJSON()));
+    localStorage.setItem(STORAGE_KEY, json);
+    alert("Saved current table to localStorage.");
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "2rem" }}>
+    <div
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "2rem" }}
+    >
       {/* Students table */}
       <table
         style={{
@@ -56,6 +93,7 @@ const StudentsTable = () => {
           borderCollapse: "collapse",
           boxShadow: "0 0 10px rgba(0,0,0,0.1)",
           fontFamily: "Arial, sans-serif",
+          background: "#fff",
         }}
       >
         <thead>
@@ -67,37 +105,52 @@ const StudentsTable = () => {
           </tr>
         </thead>
         <tbody>
-          {students.map((student, index) => (
-            <tr
-              key={student.id}
-              style={{
-                backgroundColor: index % 2 === 0 ? "#f2f2f2" : "#fff",
-              }}
-            >
-              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{student.id}</td>
-              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{student.name}</td>
-              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{student.email}</td>
-              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{student.role}</td>
+          {students.map((s, idx) => (
+            <tr key={s.id} style={{ backgroundColor: idx % 2 === 0 ? "#f2f2f2" : "#fff" }}>
+              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{s.id}</td>
+              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{s.name}</td>
+              {/* Force LTR so the email displays nicely */}
+              <td style={{ padding: "10px", border: "1px solid #ddd", direction: "ltr" }}>{s.email}</td>
+              <td style={{ padding: "10px", border: "1px solid #ddd" }}>{s.role}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Single button to add a random student */}
-      <button
-        onClick={addRandomStudent}
-        style={{
-          marginTop: "1rem",
-          padding: "0.5rem 1rem",
-          backgroundColor: "#3486e3",
-          color: "#fff",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        הוסף משתמש אקראי
-      </button>
+      {/* Actions */}
+      <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+        {/* Button required by the exercise: add random record */}
+        <button
+          type="button"
+          onClick={addRandomStudent}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#3486e3",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          הוסף משתמש אקראי
+        </button>
+
+        {/* Additional required button: explicit save to localStorage */}
+        <button
+          type="button"
+          onClick={saveToLocalStorage}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#2e7d32",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          שמור נתונים
+        </button>
+      </div>
     </div>
   );
 };
