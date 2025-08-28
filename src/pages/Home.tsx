@@ -1,4 +1,5 @@
 // src/pages/Home.tsx
+// Home page with navigation button
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
