@@ -1,69 +1,45 @@
-# React + TypeScript + Vite
+# College Request Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project was developed as part of the *Frontend Development and Implementation* course.  
+The system allows students and administrators to manage requests in different topics, with clear forms and management screens.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Purpose
+- Enable students to open new requests and manage conversations with the college staff.  
+- Provide administrators with tools to manage users, request topics, and monitor all requests.  
+- Store all data in the browser *Local Storage*, with automatic initial sample data.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Main Screens
+- *Home* – Overview of recent requests and button to create a new request.  
+- *Login* – User login with predefined credentials.  
+- *Open / Closed / All Requests* – Filter and view requests by status.  
+- *Request Conversation* – Full conversation thread between student and staff, with replies.  
+- *Manage Users* – Admin screen to add, edit or delete system users.  
+- *Manage Topics* – Admin screen to manage request topics.  
+- *Statistics* – Overview of number of requests, status distribution, and average response times.  
+- *Help* – Short user guide.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+## Forms
+- *New Request Form* – Submit a request for a selected topic, with description and optional file.  
+- *User Form* – Add a new user with personal details and role.  
+- *Topic Form* – Add a new topic to the list of request categories.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Technical Features
+- All data is stored in *Local Storage*.  
+- On first load, if storage is empty, the app generates *at least 10 sample objects* for each entity (Users, Topics, Requests, Messages).  
+- All form fields include validation (required, proper formats).  
+- Success notifications are shown using *Material UI Snackbar*.  
+- The UI is fully built with *Material UI* components for consistency.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Summary
+This is a *college request management system*:  
+Students can open and track requests, administrators can manage users and topics, and everyone has a clear interface to view and interact with the system data.
