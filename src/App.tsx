@@ -5,6 +5,9 @@ import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import EntityListPage from './pages/entities/EntityListPage';
 import EntityCreatePage from './pages/entities/EntityCreatePage';
+import StudentRequestsPage from './pages/StudentRequestsPage';
+import StudentRequestFormPage from './pages/StudentRequestFormPage';
+import StatisticsPage from './pages/StatisticsPage';
 import HelpPage from './pages/HelpPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 
@@ -34,12 +37,14 @@ const App: React.FC = () => {
 
           {/* Student */}
           <Route path="/student" element={<Navigate to="/student/requests" replace />} />
+          <Route path="/student/requests" element={<StudentRequestsPage />} />
+          <Route path="/student/requests/new" element={<StudentRequestFormPage />} />
 
           {/* Help */}
           <Route path="/help" element={<HelpPage />} />
 
           {/* Statistics — canonical path + redirect from legacy */}
-      
+          <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/stats" element={<Navigate to="/statistics" replace />} />
 
           {/* Misc */}

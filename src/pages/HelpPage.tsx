@@ -1,72 +1,76 @@
 import React from 'react';
-import { 
-  Box, 
-  Typography, 
-  Accordion, 
-  AccordionSummary, 
+import {
+  Box,
+  Typography,
+  Accordion,
+  AccordionSummary,
   AccordionDetails,
   List,
   ListItem,
   ListItemText,
   Chip,
-  Paper
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useNavigate } from 'react-router-dom';
+
+const summarySX = {
+  flexDirection: 'row-reverse',
+  '& .MuiAccordionSummary-content': {
+    margin: 0,
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    textAlign: 'right',
+  },
+  '& .MuiAccordionSummary-expandIconWrapper': {
+    ml: 1,
+  },
+} as const;
 
 const HelpPage: React.FC = () => {
-  const navigate = useNavigate();
-
   return (
-    <Box sx={{ textAlign: 'right', p: 3, maxWidth: 1000, mx: 'auto' }}>
+    <Box dir="rtl" sx={{ textAlign: 'right', p: 3, maxWidth: 1000, mx: 'auto' }}>
       <Typography variant="h4" sx={{ mb: 4, textAlign: 'center', fontWeight: 'bold' }}>
         מדריך למשתמש
       </Typography>
 
       {/* פתיחת פנייה */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            פתיחת פנייה
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>פתיחת פנייה</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="איך מגיעים לפורמט 'פניה חדשה'"
                 secondary="מהעמוד 'פניות' בצד הסטודנט, לחצו על כפתור 'פניה חדשה'"
                 sx={{ textAlign: 'right' }}
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="שדות חובה"
                 secondary={
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • נושא (בחירה מרשימה)
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • תיאור/פירוט
-                    </Typography>
-                    <Typography variant="body2" sx={{ textAlign: 'right' }}>
-                      • צרופות (לא חובה)
-                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• נושא (בחירה מרשימה)</Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• תיאור/פירוט</Typography>
+                    <Typography variant="body2" sx={{ textAlign: 'right' }}>• צרופות (לא חובה)</Typography>
                   </Box>
                 }
                 sx={{ textAlign: 'right' }}
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="מגבלת קובץ"
                 secondary="עד 5MB, סוגי קבצים מקובלים: תמונות, PDF, Word, טקסט"
                 sx={{ textAlign: 'right' }}
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="לאחר שליחה"
                 secondary="תופיע הודעה: 'הפניה הוגשה'"
                 sx={{ textAlign: 'right' }}
@@ -78,22 +82,22 @@ const HelpPage: React.FC = () => {
 
       {/* התכתבות וצרופות */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            התכתבות וצרופות
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>התכתבות וצרופות</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="צפייה בפנייה"
                 secondary="לחצו על 'הצגה' לראות פרטי הפנייה והתכתבות"
                 sx={{ textAlign: 'right' }}
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="הוספת תגובה"
                 secondary={
                   <Box sx={{ textAlign: 'right' }}>
@@ -109,7 +113,7 @@ const HelpPage: React.FC = () => {
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="צירוף קובץ לתגובה"
                 secondary="ניתן לצרף קבצים לתגובות. רואים את שם הקובץ/גודל ואפשרות לפתיחה"
                 sx={{ textAlign: 'right' }}
@@ -121,15 +125,15 @@ const HelpPage: React.FC = () => {
 
       {/* סטטוסים */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            סטטוסים
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>סטטוסים</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
                     <Typography variant="body1" sx={{ textAlign: 'right' }}>נוצרה וממתינה לטיפול</Typography>
@@ -140,10 +144,12 @@ const HelpPage: React.FC = () => {
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                    <Typography variant="body1" sx={{ textAlign: 'right' }}>נפתחה/יש תגובה ממנהל (נפתח אוטומטית בעת צפייה/תגובה של מנהל)</Typography>
+                    <Typography variant="body1" sx={{ textAlign: 'right' }}>
+                      נפתחה/יש תגובה ממנהל (נפתח אוטומטית בעת צפייה/תגובה של מנהל)
+                    </Typography>
                     <Chip label="בטיפול" color="warning" size="small" />
                   </Box>
                 }
@@ -151,7 +157,7 @@ const HelpPage: React.FC = () => {
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
                     <Typography variant="body1" sx={{ textAlign: 'right' }}>הטיפול הסתיים; ההתכתבות לקריאה בלבד</Typography>
@@ -167,15 +173,15 @@ const HelpPage: React.FC = () => {
 
       {/* נושאים זמינים */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            נושאים זמינים
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>נושאים זמינים</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="נושאים קבועים"
                 secondary={
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1, justifyContent: 'flex-end' }}>
@@ -188,11 +194,7 @@ const HelpPage: React.FC = () => {
               />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
-                primary="אחר"
-                secondary="ניתן להזין נושא חופשי"
-                sx={{ textAlign: 'right' }}
-              />
+              <ListItemText primary="אחר" secondary="ניתן להזין נושא חופשי" sx={{ textAlign: 'right' }} />
             </ListItem>
           </List>
         </AccordionDetails>
@@ -200,33 +202,23 @@ const HelpPage: React.FC = () => {
 
       {/* סטטיסטיקה */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            סטטיסטיקה
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>סטטיסטיקה</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="מה רואים בלשונית הסטטיסטיקה"
                 secondary={
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • סה״כ פניות
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • פתוחות
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • נסגרו
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
-                      • זמן תגובה ממוצע
-                    </Typography>
-                    <Typography variant="body2" sx={{ textAlign: 'right' }}>
-                      • גרף עמודות
-                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• סה״כ פניות</Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• פתוחות</Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• נסגרו</Typography>
+                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• זמן תגובה ממוצע</Typography>
+                    <Typography variant="body2" sx={{ textAlign: 'right' }}>• גרף עמודות</Typography>
                   </Box>
                 }
                 sx={{ textAlign: 'right' }}
@@ -238,15 +230,15 @@ const HelpPage: React.FC = () => {
 
       {/* פרטיות ושמירת נתונים */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            פרטיות ושמירת נתונים
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>פרטיות ושמירת נתונים</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
+              <ListItemText
                 primary="שמירת נתונים"
                 secondary="הנתונים נשמרים מקומית (localStorage) לתרגול/דמו"
                 sx={{ textAlign: 'right' }}
@@ -258,38 +250,25 @@ const HelpPage: React.FC = () => {
 
       {/* שאלות נפוצות */}
       <Accordion sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            שאלות נפוצות (FAQ)
-          </Typography>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySX}>
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>שאלות נפוצות (FAQ)</Typography>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
-                primary="למה איני רואה פניות?"
-                secondary="ייתכן שאין פניות עבור המשתמש הנוכחי"
-                sx={{ textAlign: 'right' }}
-              />
+              <ListItemText primary="למה איני רואה פניות?" secondary="ייתכן שאין פניות עבור המשתמש הנוכחי" sx={{ textAlign: 'right' }} />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
-                primary="כיצד לעדכן סטטוס?"
-                secondary="מנהל: דרך דיאלוג ההצגה, 'סגור/י פנייה'"
-                sx={{ textAlign: 'right' }}
-              />
+              <ListItemText primary="כיצד לעדכן סטטוס?" secondary="מנהל: דרך דיאלוג ההצגה, 'סגור/י פנייה'" sx={{ textAlign: 'right' }} />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText 
-                primary="מגבלת גודל קובץ ופורמטים"
-                secondary="עד 5MB, תמונות (JPG, PNG, GIF), PDF, Word, טקסט"
-                sx={{ textAlign: 'right' }}
-              />
+              <ListItemText primary="מגבלת גודל קובץ ופורמטים" secondary="עד 5MB, תמונות (JPG, PNG, GIF), PDF, Word, טקסט" sx={{ textAlign: 'right' }} />
             </ListItem>
           </List>
         </AccordionDetails>
       </Accordion>
-
     </Box>
   );
 };
