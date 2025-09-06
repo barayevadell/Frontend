@@ -1,20 +1,25 @@
-import React from "react";
+import React from 'react';
+import { Box, Typography } from '@mui/material';
+// Fallback implementation for brandAlpha if module is missing
+const brandAlpha = (alpha: number) => `rgba(0, 0, 0, ${alpha})`;
 
-const Footer: React.FC = () => (
-  <footer
-    style={{
-      background: "#3486e3ff",
-      color: "#fff",
-      textAlign: "center",
-      padding: "1rem 0",
-      position: "fixed",
-      left: 0,
-      bottom: 0,
-      width: "100%",
-    }}
-  >
-    <span>&copy; {new Date().getFullYear()} כל הזכויות שמורות לאדל ואאליטה</span>
-  </footer>
-);
+const Footer: React.FC = () => {
+  return (
+    <Box
+      component="footer"
+      sx={{
+        mt: 4,
+        py: 2,
+        textAlign: 'center',
+        backgroundColor: brandAlpha(0.06),
+        borderTop: `1px solid ${brandAlpha(0.12)}`,
+      }}
+    >
+      <Typography variant="body2">© 2025 כל הזכויות שמורות לאדל ואאליטה</Typography>
+    </Box>
+  );
+};
 
 export default Footer;
+
+

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 type Topic = {
   id: string;
@@ -30,6 +31,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({ text, color, onClick }) => 
 );
 
 const TopicTable: React.FC = () => {
+  const navigate = useNavigate();
   const [topic, setTopic] = useState<Topic[]>([]); // state for topics
 
   // Load from localStorage
@@ -71,6 +73,25 @@ const TopicTable: React.FC = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "2rem" }}>
+      {/* Back to Home (right aligned) */}
+      <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#555",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            marginBottom: "1rem",
+          }}
+        >
+          חזרה לדף הבית
+        </button>
+      </div>
+
       <table
         style={{
           width: "60%",

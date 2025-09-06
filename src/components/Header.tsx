@@ -1,22 +1,40 @@
-import React from "react";
+import React from 'react';
+import { AppBar, Toolbar, Typography, IconButton } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import { useNavigate } from 'react-router-dom';
 
-const Header: React.FC = () => {
+type HeaderProps = {
+  onMenuClick?: () => void;
+};
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  const navigate = useNavigate();
   return (
-    <header
-      style={{
-        backgroundColor: "#3486e3ff",
-        color: "white",
-        padding: "1rem",
-        textAlign: "center",
-        width: "100%",
-        alignSelf: "stretch",
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: "2rem" }}>
-        רשימת משתמשים 
-      </h1>
-    </header>
+    <AppBar position="fixed" color="primary" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
+      <Toolbar>
+        <IconButton
+          color="inherit"
+          edge="start"
+          onClick={onMenuClick}
+          sx={{ mr: 2, display: { md: 'none' } }}
+          aria-label="Open navigation menu"
+        >
+          <MenuIcon />
+        </IconButton>
+        <Typography
+          variant="h6"
+          component="div"
+          sx={{ cursor: 'pointer', fontWeight: 700 }}
+          onClick={() => navigate('/')}
+        >
+          Blue Admin
+        </Typography>
+        <div style={{ flex: 1 }} />
+      </Toolbar>
+    </AppBar>
   );
 };
 
-export default Header;
+export default Header;
+
+
