@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Paper,
-  Grid,
   Button,
   RadioGroup,
   FormControlLabel,
@@ -133,46 +132,48 @@ const Home: React.FC = () => {
       <Paper
         elevation={3}
         dir="rtl"
-        sx={{
-          width: '100%',
-          maxWidth: 460,
-          p: 4,
-          borderRadius: 3,
-        }}
+        sx={{ width: '100%', maxWidth: 460, p: 4, borderRadius: 3 }}
       >
         <Typography variant="h4" sx={{ mb: 3, textAlign: 'center' }}>
           התחברות
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit}>
-          <Grid container spacing={2}>
+          {/* במקום Grid: CSS Grid עם Box — עובד בכל גרסה */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: 2,
+            }}
+          >
             {/* בחירת תפקיד */}
-            <Grid item xs={12}>
+            <Box>
               <RadioGroup
                 row
                 value={role}
-                onChange={(_, v) => setRole(v as Role)}
+                onChange={(_e, v) => setRole(v as Role)}
                 aria-label="בחירת תפקיד"
                 sx={{ justifyContent: 'flex-end' }}
               >
                 <FormControlLabel value="סטודנט" control={<Radio />} label="סטודנט" />
                 <FormControlLabel value="מנהל" control={<Radio />} label="מנהל" />
               </RadioGroup>
-            </Grid>
+            </Box>
 
             {/* תעודת זהות */}
-            <Grid item xs={12}>
+            <Box>
               <TextField
                 fullWidth
                 required
                 placeholder="תעודת זהות"
                 value={idNumber}
-                onChange={(e) => setIdNumber(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdNumber(e.target.value)}
                 error={Boolean(errors.idNumber)}
                 helperText={errors.idNumber || ' '}
                 inputProps={{ maxLength: 9, style: { textAlign: 'right' } }}
                 InputProps={{
-                  notched: false, // מסגרת שלמה
+                  notched: false,
                   endAdornment: (
                     <InputAdornment position="end">
                       <BadgeOutlinedIcon fontSize="small" />
@@ -183,17 +184,17 @@ const Home: React.FC = () => {
                 InputLabelProps={{ shrink: false }}
                 FormHelperTextProps={{ sx: { textAlign: 'right', m: 0 } }}
               />
-            </Grid>
+            </Box>
 
             {/* סיסמה */}
-            <Grid item xs={12}>
+            <Box>
               <TextField
                 fullWidth
                 required
                 type="password"
                 placeholder="סיסמה"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 error={Boolean(errors.password)}
                 helperText={errors.password || ' '}
                 inputProps={{ style: { textAlign: 'right' } }}
@@ -209,8 +210,8 @@ const Home: React.FC = () => {
                 InputLabelProps={{ shrink: false }}
                 FormHelperTextProps={{ sx: { textAlign: 'right', m: 0 } }}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button type="submit" variant="contained">

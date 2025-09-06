@@ -1,25 +1,58 @@
-// src/App.tsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
-import Home from "./pages/Home";
-import TopicTable from "./components/Topic";
-import StudentsTable from "./components/StudentsTable";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import NotFound from './pages/NotFound';
+import EntityListPage from './pages/entities/EntityListPage';
+import EntityCreatePage from './pages/entities/EntityCreatePage';
+import HelpPage from './pages/HelpPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 
-export default function App() {
+// Route logging component
+const RouteLogger: React.FC = () => {
+  const location = useLocation();
+  React.useEffect(() => {
+    if ((import.meta as any).env?.DEV) {
+      console.log('[ROUTE]', `path=${location.pathname}`);
+    }
+  }, [location.pathname]);
+  return null;
+};
+
+const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        <Header />
-        <main style={{ flex: 1, padding: "2rem", textAlign: "center" }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/topics" element={<TopicTable />} />
-            <Route path="/students" element={<StudentsTable />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <RouteLogger />
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+
+          {/* Admin */}
+          <Route path="/admin" element={<Navigate to="/admin/requests" replace />} />
+          <Route path="/admin/requests" element={<EntityListPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+
+          {/* Student */}
+          <Route path="/student" element={<Navigate to="/student/requests" replace />} />
+
+
+          {/* Help */}
+          <Route path="/help" element={<HelpPage />} />
+
+          {/* Statistics — canonical path + redirect from legacy */}
+      
+          <Route path="/stats" element={<Navigate to="/statistics" replace />} />
+
+          {/* Misc */}
+          <Route path="/logout" element={<div style={{ textAlign: 'right' }}>יציאה</div>} />
+          <Route path="/home" element={<Navigate to="/" replace />} />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Layout>
     </BrowserRouter>
   );
-}
+};
+
+export default App;
