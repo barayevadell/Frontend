@@ -35,7 +35,6 @@ const App: React.FC = () => {
           {/* Student */}
           <Route path="/student" element={<Navigate to="/student/requests" replace />} />
 
-
           {/* Help */}
           <Route path="/help" element={<HelpPage />} />
 
