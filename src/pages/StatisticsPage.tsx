@@ -7,8 +7,7 @@ import {
   Grid,
   Card,
   CardContent,
-  useTheme,
-  Button,            // ← כפתור להתחברות
+  Button,
 } from '@mui/material';
 import {
   BarChart,
@@ -21,24 +20,28 @@ import {
   Cell,
 } from 'recharts';
 
-import { readAll } from '../lib/storage';
+import { readAll } from '@lib/storage';
 import { ENTITIES } from '@config/entities';
 
-// טיפוסים בסיסיים
 type Sender = 'מנהל' | 'סטודנט';
+
 type ConversationMessage = {
   sender: Sender;
   text?: string;
-  timestamp?: string; // ISO
+  // can be Date.now() number OR ISO string:
+  timestamp?: number | string;
 };
+
 type RequestStatus = 'פתוחה' | 'בטיפול' | 'נסגרה';
+
 type RequestItem = {
   status?: RequestStatus | string;
   conversation?: ConversationMessage[];
   createdAt?: string; // ISO
+  updatedAt?: string; // ISO
+  subject?: string;
 };
 
-// נרמול סטטוס
 const normalizeStatus = (raw: unknown): RequestStatus => {
   const s = String(raw ?? '').trim().toLowerCase();
   if (s === 'נסגרה' || s === 'closed') return 'נסגרה';
@@ -46,23 +49,47 @@ const normalizeStatus = (raw: unknown): RequestStatus => {
   return 'פתוחה';
 };
 
-// אותו KEY כמו בסידינג
+// timestamp can be ISO string or number (ms)
+const toMs = (t?: number | string): number | null => {
+  if (t == null) return null;
+  if (typeof t === 'number' && Number.isFinite(t)) return t;
+  const ms = Date.parse(String(t));
+  return Number.isFinite(ms) ? ms : null;
+};
+
 const REQUESTS_KEY = ENTITIES.find((e) => e.key === 'requests')?.key ?? 'requests';
 
 const StatisticsPage: React.FC = () => {
-  const theme = useTheme();
-
-  // בדיקת התחברות
-  const isLoggedIn = React.useMemo(() => {
+  const [isLoggedIn] = React.useState(() => {
     try {
       const raw = localStorage.getItem('blue-admin:user');
       return !!(raw && JSON.parse(raw));
     } catch {
       return false;
     }
+  });
+
+  const [rows, setRows] = React.useState<RequestItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // async load so it works with Firestore-backed readAll
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await Promise.resolve(readAll(REQUESTS_KEY));
+        setRows(Array.isArray(data) ? (data as RequestItem[]) : []);
+      } catch (err) {
+        if ((import.meta as any).env?.DEV) {
+          console.error('[STATISTICS] Failed to read storage', err);
+        }
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  // אם לא מחובר – מציגים כרטיס עם כפתור התחברות
   if (!isLoggedIn) {
     return (
       <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '60vh', textAlign: 'right' }}>
@@ -83,95 +110,60 @@ const StatisticsPage: React.FC = () => {
     );
   }
 
-  // קריאת הנתונים מ-localStorage
-  const allRequests = React.useMemo<RequestItem[]>(() => {
-    try {
-      const data = readAll(REQUESTS_KEY) || [];
-      return Array.isArray(data) ? (data as RequestItem[]) : [];
-    } catch (err) {
-      if ((import.meta as any).env?.DEV) {
-        // eslint-disable-next-line no-console
-        console.error('[STATISTICS] Failed to read storage', err);
+  // stats
+  const total = rows.length;
+  const open = rows.filter((r) => {
+    const st = normalizeStatus(r.status);
+    return st === 'פתוחה' || st === 'בטיפול';
+  }).length;
+  const closed = rows.filter((r) => normalizeStatus(r.status) === 'נסגרה').length;
+
+  // average first response time by manager
+  const avgResponseTime = React.useMemo(() => {
+    if (rows.length === 0) return 'N/A';
+
+    let totalMs = 0;
+    let count = 0;
+
+    for (const r of rows) {
+      if (!r.createdAt || !Array.isArray(r.conversation)) continue;
+      const createdMs = toMs(r.createdAt);
+      if (createdMs == null) continue;
+
+      const firstManager = r.conversation
+        .filter((m) => m?.sender === 'מנהל' && m.timestamp != null)
+        .map((m) => toMs(m.timestamp))
+        .filter((ms): ms is number => ms != null && ms > createdMs)
+        .sort((a, b) => a - b)[0];
+
+      if (firstManager != null) {
+        totalMs += firstManager - createdMs;
+        count += 1;
       }
-      return [];
     }
-  }, []);
 
-  // חישוב הסטטיסטיקות
-  const statistics = React.useMemo(() => {
-    const rows = allRequests.filter((r) => r && typeof r === 'object');
+    if (count === 0) return 'N/A';
+    const avg = totalMs / count;
+    const minutes = Math.round(avg / (1000 * 60));
+    if (minutes < 60) return `${minutes} דקות`;
+    const hours = Math.round(avg / (1000 * 60 * 60));
+    if (hours < 24) return `${hours} שעות`;
+    const days = Math.round(hours / 24);
+    return `${days} ימים`;
+  }, [rows]);
 
-    const total = rows.length;
-    const open = rows.filter((r) => {
-      const st = normalizeStatus(r.status);
-      return st === 'פתוחה' || st === 'בטיפול';
-    }).length;
-    const closed = rows.filter((r) => normalizeStatus(r.status) === 'נסגרה').length;
-
-    const calcAvgResponse = () => {
-      const withReplies = rows.filter((r) => {
-        if (!r?.createdAt || !Array.isArray(r.conversation)) return false;
-        return r.conversation.some((m) => m?.sender === 'מנהל' && m.timestamp);
-      });
-      if (withReplies.length === 0) return 'N/A';
-
-      let totalMs = 0;
-      let count = 0;
-
-      withReplies.forEach((req) => {
-        try {
-          const created = new Date(req.createdAt as string).getTime();
-          if (!Number.isFinite(created)) return;
-
-          const firstManagerMs = (req.conversation || [])
-            .filter((m) => m?.sender === 'מנהל' && m.timestamp)
-            .map((m) => new Date(m.timestamp as string).getTime())
-            .filter((t) => Number.isFinite(t) && t > created)
-            .sort((a, b) => a - b)[0];
-
-          if (Number.isFinite(firstManagerMs)) {
-            totalMs += firstManagerMs - created;
-            count += 1;
-          }
-        } catch {
-          /* ignore bad item */
-        }
-      });
-
-      if (count === 0) return 'N/A';
-      const avgMs = totalMs / count;
-      const minutes = Math.round(avgMs / (1000 * 60));
-      if (minutes < 60) return `${minutes} דקות`;
-      const hours = Math.round(avgMs / (1000 * 60 * 60));
-      if (hours < 24) return `${hours} שעות`;
-      const days = Math.round(hours / 24);
-      return `${days} ימים`;
-    };
-
-    return {
-      total,
-      open,
-      closed,
-      avgResponseTime: calcAvgResponse(),
-    };
-  }, [allRequests]);
-
-  // נתונים לגרף
-  const chartData = React.useMemo(
-    () => [
-      { name: 'פתוחות', value: statistics.open, color: theme.palette.primary.main },
-      { name: 'נסגרות', value: statistics.closed, color: theme.palette.error.main },
-    ],
-    [statistics.open, statistics.closed, theme]
-  );
+  // simple chart data
+  const chartData = [
+    { name: 'פתוחות/בטיפול', value: open, color: '#1976d2' },
+    { name: 'נסגרו', value: closed, color: '#d32f2f' },
+  ];
 
   return (
-    <Box>
+    <Box dir="rtl">
       <Typography variant="h4" sx={{ mb: 3, textAlign: 'right' }}>
         סטטיסטיקה
       </Typography>
 
-      {/* קלפי סיכום */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -179,7 +171,7 @@ const StatisticsPage: React.FC = () => {
               <Typography color="text.secondary" gutterBottom>
                 סה״כ פניות
               </Typography>
-              <Typography variant="h4">{statistics.total}</Typography>
+              <Typography variant="h4">{loading ? '—' : total}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -188,10 +180,10 @@ const StatisticsPage: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                פתוחות
+                פתוחות/בטיפול
               </Typography>
               <Typography variant="h4" color="primary">
-                {statistics.open}
+                {loading ? '—' : open}
               </Typography>
             </CardContent>
           </Card>
@@ -204,7 +196,7 @@ const StatisticsPage: React.FC = () => {
                 נסגרו
               </Typography>
               <Typography variant="h4" color="error">
-                {statistics.closed}
+                {loading ? '—' : closed}
               </Typography>
             </CardContent>
           </Card>
@@ -216,46 +208,26 @@ const StatisticsPage: React.FC = () => {
               <Typography color="text.secondary" gutterBottom>
                 זמן תגובה ממוצע
               </Typography>
-              <Typography variant="h6">{statistics.avgResponseTime}</Typography>
+              <Typography variant="h6">{loading ? '—' : avgResponseTime}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* גרף */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2, textAlign: 'right' }}>
           התפלגות פניות
         </Typography>
         <Box sx={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
+            <BarChart data={loading ? [] : chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 14 }}
-                axisLine={{ stroke: theme.palette.text.secondary }}
-                tickLine={{ stroke: theme.palette.text.secondary }}
-              />
-              <YAxis
-                tick={{ fontSize: 14, dx: -15 }}
-                allowDecimals={false}
-                axisLine={{ stroke: theme.palette.text.secondary }}
-                tickLine={{ stroke: theme.palette.text.secondary }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: theme.palette.background.paper,
-                  border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: theme.shape.borderRadius,
-                }}
-              />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, idx) => (
-                  <Cell key={`cell-${idx}`} fill={entry.color} />
+                {(loading ? [] : chartData).map((entry, idx) => (
+                  <Cell key={idx} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
