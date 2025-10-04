@@ -1,3 +1,4 @@
+// src/pages/...(adjust path)/AdminUsersPage.tsx
 import React from 'react';
 import {
   Box,
@@ -28,78 +29,124 @@ import {
   Chip,
   TableSortLabel,
   Pagination,
-  Stack
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
 } from '@mui/icons-material';
+
+// ✅ Firestore
 import {
-  readAllUsers,
-  writeAllUsers,
-  updateUser,
-  deleteUser,
-  userExists,
-  hasUserRequests,
-  appendUser
-} from '@lib/storage';
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  where,
+} from 'firebase/firestore';
+
+
+import { db } from '../firebase';
+
 import { generateEmailFromName } from '@lib/emailGenerator';
-import type { User } from '@data/usersSeed';
+
+// === Local User type (so we don't depend on external paths) ===
+type Role = 'סטודנט' | 'מנהל';
+export interface User {
+  id?: string;        // Firestore document ID
+  idNumber: string;   // 9 digits
+  fullName: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  createdAt: string;  // ISO
+  updatedAt: string;  // ISO
+}
 
 type SortField = 'fullName' | 'idNumber' | 'email' | 'role' | 'isActive';
 type SortDirection = 'asc' | 'desc';
 
 const AdminUsersPage: React.FC = () => {
+  // ===== UI state =====
   const [users, setUsers] = React.useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = React.useState<User[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [sortField, setSortField] = React.useState<SortField>('fullName');
   const [sortDirection, setSortDirection] = React.useState<SortDirection>('asc');
   const [page, setPage] = React.useState(1);
+  const itemsPerPage = 10;
 
   const [dialog, setDialog] = React.useState<{ open: boolean; mode: 'add' | 'edit'; user?: User }>({
     open: false,
-    mode: 'add'
+    mode: 'add',
   });
   const [formData, setFormData] = React.useState<Partial<User>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+
+  const [deleteDialog, setDeleteDialog] = React.useState<{ open: boolean; user?: User }>({
     open: false,
-    message: '',
-    severity: 'success'
   });
-  const [deleteDialog, setDeleteDialog] = React.useState<{ open: boolean; user?: User }>({ open: false });
 
-  const itemsPerPage = 10;
+  // ===== Firestore helpers =====
 
-  // ✅ טוענים רק מה-LocalStorage; אין זריעה כאן (seeding נעשה ב-Home)
-  React.useEffect(() => {
+  /** Load all users from Firestore (collection: 'users') */
+  const loadUsers = React.useCallback(async () => {
     try {
-      const existingUsers = readAllUsers() || [];
-      setUsers(existingUsers);
-    } catch (error) {
-      console.error('[ADMIN USERS] Failed to load users:', error);
+      const snap = await getDocs(collection(db, 'users'));
+      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as User) }));
+      setUsers(data);
+    } catch (err) {
+      console.error('[USERS] load failed:', err);
       setUsers([]);
+      setSnackbar({ open: true, message: 'טעינת משתמשים נכשלה', severity: 'error' });
     }
   }, []);
 
-  // סינון ומיון
+  /** Check if there are any requests for a given user (collection: 'requests') */
+  const hasUserRequests = React.useCallback(async (idNumber: string) => {
+    try {
+      const q = query(collection(db, 'requests'), where('idNumber', '==', idNumber));
+      const snap = await getDocs(q);
+      return !snap.empty;
+    } catch (err) {
+      console.error('[USERS] check requests failed:', err);
+      // Be safe: if error, treat as "has requests" to avoid accidental delete
+      return true;
+    }
+  }, []);
+
+  // ===== Effects =====
+
+  // Initial load
+  React.useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  // Filter + sort when dependencies change
   React.useEffect(() => {
     const safeUsers = Array.isArray(users) ? users : [];
-    let filtered = safeUsers.filter(user => {
+    let filtered = safeUsers.filter((user) => {
       if (!user) return false;
-      const searchLower = searchTerm.toLowerCase();
+      const s = searchTerm.toLowerCase();
       return (
-        (user.fullName || '').toLowerCase().includes(searchLower) ||
+        (user.fullName || '').toLowerCase().includes(s) ||
         (user.idNumber || '').includes(searchTerm) ||
-        (user.email || '').toLowerCase().includes(searchLower)
+        (user.email || '').toLowerCase().includes(s)
       );
     });
 
-    filtered.sort((a, b) => {
+    filtered.sort((a: User, b: User) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
 
@@ -117,6 +164,8 @@ const AdminUsersPage: React.FC = () => {
     setPage(1);
   }, [users, searchTerm, sortField, sortDirection]);
 
+  // ===== UI handlers =====
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -132,7 +181,7 @@ const AdminUsersPage: React.FC = () => {
       idNumber: '',
       email: '',
       role: 'סטודנט',
-      isActive: true
+      isActive: true,
     });
     setErrors({});
     setDialog({ open: true, mode: 'add' });
@@ -148,37 +197,61 @@ const AdminUsersPage: React.FC = () => {
     setDeleteDialog({ open: true, user });
   };
 
-  const handleToggleActive = (user: User) => {
-    updateUser(user.idNumber, { isActive: !user.isActive });
-    setUsers(readAllUsers());
-    setSnackbar({ open: true, message: `המשתמש ${user.isActive ? 'הושבת' : 'הופעל'}`, severity: 'success' });
+  const handleToggleActive = async (user: User) => {
+    try {
+      if (!user.id) return;
+      await updateDoc(doc(db, 'users', user.id), { isActive: !user.isActive, updatedAt: new Date().toISOString() });
+      await loadUsers();
+      setSnackbar({
+        open: true,
+        message: `המשתמש ${user.isActive ? 'הושבת' : 'הופעל'}`,
+        severity: 'success',
+      });
+    } catch (err) {
+      console.error('[USERS] toggle active failed:', err);
+      setSnackbar({ open: true, message: 'פעולה נכשלה', severity: 'error' });
+    }
   };
 
-  const validateForm = (): boolean => {
+  // Auto-generate email while typing name (can still be edited)
+  const handleNameChange = (name: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      fullName: name,
+      email: name.trim() ? generateEmailFromName(name.trim()) : prev.email,
+    }));
+  };
+
+  // ===== Validation =====
+  const validateForm = async (): Promise<boolean> => {
     const newErrors: Record<string, string> = {};
 
+    // fullName
     if (!formData.fullName?.trim()) {
       newErrors.fullName = 'יש להזין שם מלא תקין';
     } else if (formData.fullName.trim().length < 2) {
       newErrors.fullName = 'השם חייב להכיל לפחות 2 תווים';
     }
 
-    if (!formData.idNumber?.trim()) {
+    // idNumber
+    if (!formData.idNumber?.trim() || !/^\d{9}$/.test(formData.idNumber)) {
       newErrors.idNumber = 'יש להזין מספר תעודת זהות בן 9 ספרות';
-    } else if (!/^\d{9}$/.test(formData.idNumber)) {
-      newErrors.idNumber = 'יש להזין מספר תעודת זהות בן 9 ספרות';
-    } else if (dialog.mode === 'add' && userExists(formData.idNumber)) {
-      newErrors.idNumber = 'תעודת זהות קיימת במערכת';
-    } else if (dialog.mode === 'edit' && formData.idNumber !== dialog.user?.idNumber && userExists(formData.idNumber)) {
-      newErrors.idNumber = 'תעודת זהות קיימת במערכת';
+    } else {
+      // Uniqueness check in Firestore when adding / or changing idNumber
+      const qSameId = query(collection(db, 'users'), where('idNumber', '==', formData.idNumber));
+      const snap = await getDocs(qSameId);
+      const existsInDb = snap.docs.some((d) => d.id !== (dialog.user?.id ?? ''));
+      if (existsInDb) {
+        newErrors.idNumber = 'תעודת זהות קיימת במערכת';
+      }
     }
 
-    if (!formData.email?.trim()) {
-      newErrors.email = 'כתובת אימייל לא תקינה';
-    } else if (!formData.email.includes('@')) {
+    // email
+    if (!formData.email?.trim() || !formData.email.includes('@')) {
       newErrors.email = 'כתובת אימייל לא תקינה';
     }
 
+    // role
     if (!formData.role) {
       newErrors.role = 'יש לבחור תפקיד';
     }
@@ -187,81 +260,83 @@ const AdminUsersPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveUser = () => {
-    if (!validateForm()) return;
+  // Save (add/edit) user in Firestore
+  const handleSaveUser = async () => {
+    if (!(await validateForm())) return;
 
     const now = new Date().toISOString();
-    const userData: User = {
+    const toSave: Omit<User, 'id'> = {
       idNumber: formData.idNumber!,
       fullName: formData.fullName!.trim(),
       email: formData.email!.trim(),
-      role: formData.role!,
+      role: formData.role as Role,
       isActive: formData.isActive ?? true,
-      createdAt: dialog.mode === 'add' ? now : dialog.user!.createdAt,
-      updatedAt: now
+      createdAt: dialog.mode === 'add' ? now : (dialog.user?.createdAt || now),
+      updatedAt: now,
     };
 
-    if (dialog.mode === 'add') {
-      appendUser(userData);
-    } else {
-      updateUser(dialog.user!.idNumber, userData);
+    try {
+      if (dialog.mode === 'add') {
+        await addDoc(collection(db, 'users'), toSave);
+      } else {
+        if (!dialog.user?.id) return;
+        await updateDoc(doc(db, 'users', dialog.user.id), toSave);
+      }
+      setDialog({ open: false, mode: 'add' });
+      await loadUsers();
+      setSnackbar({ open: true, message: 'המשתמש נשמר', severity: 'success' });
+    } catch (err) {
+      console.error('[USERS] save failed:', err);
+      setSnackbar({ open: true, message: 'שמירת משתמש נכשלה', severity: 'error' });
     }
-
-    setUsers(readAllUsers());
-    setDialog({ open: false, mode: 'add' });
-    setSnackbar({ open: true, message: 'המשתמש נשמר', severity: 'success' });
   };
 
-  // ✅ יצירת אימייל אוטומטית בעת הקלדת שם (אפשר עדיין לערוך ידנית אח"כ)
-  const handleNameChange = (name: string) => {
-    setFormData(prev => ({
-      ...prev,
-      fullName: name,
-      email: name.trim() ? generateEmailFromName(name.trim()) : prev.email
-    }));
-  };
+  // Confirm delete with "has requests" guard
+  const handleConfirmDelete = async () => {
+    const u = deleteDialog.user;
+    if (!u) return;
 
-  // ✅ פונקציה שחסרה: אישור מחיקה
-  const handleConfirmDelete = () => {
-    if (!deleteDialog.user) return;
+    try {
+      const hasReq = await hasUserRequests(u.idNumber);
+      if (hasReq) {
+        setSnackbar({
+          open: true,
+          message: 'לא ניתן למחוק משתמש עם פניות פעילות/היסטוריות. אפשר להשבית במקום.',
+          severity: 'error',
+        });
+        setDeleteDialog({ open: false });
+        return;
+      }
 
-    if (hasUserRequests(deleteDialog.user.idNumber)) {
-      setSnackbar({
-        open: true,
-        message: 'לא ניתן למחוק משתמש עם פניות פעילות/היסטוריות. אפשר להשבית במקום.',
-        severity: 'error'
-      });
+      if (!u.id) return;
+      await deleteDoc(doc(db, 'users', u.id));
       setDeleteDialog({ open: false });
-      return;
+      await loadUsers();
+      setSnackbar({ open: true, message: 'המשתמש נמחק', severity: 'success' });
+    } catch (err) {
+      console.error('[USERS] delete failed:', err);
+      setSnackbar({ open: true, message: 'מחיקה נכשלה', severity: 'error' });
     }
-
-    deleteUser(deleteDialog.user.idNumber);
-    setUsers(readAllUsers());
-    setDeleteDialog({ open: false });
-    setSnackbar({ open: true, message: 'המשתמש נמחק', severity: 'success' });
   };
 
-  const safeFilteredUsers = Array.isArray(filteredUsers) ? filteredUsers : [];
-  const paginatedUsers = safeFilteredUsers.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-  const totalPages = Math.ceil(safeFilteredUsers.length / itemsPerPage);
+  // ===== Pagination derived values =====
+  const safeFiltered = Array.isArray(filteredUsers) ? filteredUsers : [];
+  const paginatedUsers = safeFiltered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.ceil(safeFiltered.length / itemsPerPage);
 
   return (
-    <Box>
+    <Box dir="rtl">
+      {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4" sx={{ textAlign: 'right' }}>
           ניהול משתמשים
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddUser}
-          sx={{ px: 3 }}
-        >
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddUser} sx={{ px: 3 }}>
           הוסף משתמש
         </Button>
       </Box>
 
-      {/* חיפוש */}
+      {/* Search */}
       <TextField
         fullWidth
         placeholder="חיפוש לפי שם, תעודת זהות או אימייל..."
@@ -277,7 +352,7 @@ const AdminUsersPage: React.FC = () => {
         sx={{ mb: 3 }}
       />
 
-      {/* טבלת משתמשים */}
+      {/* Table */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -337,58 +412,39 @@ const AdminUsersPage: React.FC = () => {
               </TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
-            {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
-              <TableRow key={user?.idNumber || Math.random()} hover>
-                <TableCell align="right">{user?.fullName || ''}</TableCell>
-                <TableCell align="right">{user?.idNumber || ''}</TableCell>
-                <TableCell align="right">{user?.email || ''}</TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label={user.role}
-                    color={user.role === 'מנהל' ? 'primary' : 'default'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label={user.isActive ? 'פעיל' : 'לא פעיל'}
-                    color={user.isActive ? 'success' : 'error'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditUser(user)}
-                      color="primary"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleToggleActive(user)}
-                      color={user.isActive ? 'warning' : 'success'}
-                    >
-                      <PersonIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteUser(user)}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            )) : (
+            {paginatedUsers.length > 0 ? (
+              paginatedUsers.map((user) => (
+                <TableRow key={user.id ?? user.idNumber} hover>
+                  <TableCell align="right">{user.fullName}</TableCell>
+                  <TableCell align="right">{user.idNumber}</TableCell>
+                  <TableCell align="right">{user.email}</TableCell>
+                  <TableCell align="right">
+                    <Chip label={user.role} color={user.role === 'מנהל' ? 'primary' : 'default'} size="small" />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Chip label={user.isActive ? 'פעיל' : 'לא פעיל'} color={user.isActive ? 'success' : 'error'} size="small" />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <IconButton size="small" onClick={() => handleEditUser(user)} color="primary">
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleToggleActive(user)} color={user.isActive ? 'warning' : 'success'}>
+                        <PersonIcon />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleDeleteUser(user)} color="error">
+                        <DeleteIcon />
+                      </IconButton>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    אין משתמשים זמינים
-                  </Typography>
+                  <Typography color="text.secondary">אין משתמשים זמינים</Typography>
                 </TableCell>
               </TableRow>
             )}
@@ -396,23 +452,16 @@ const AdminUsersPage: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* עימוד */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={(_, newPage) => setPage(newPage)}
-            color="primary"
-          />
+          <Pagination count={totalPages} page={page} onChange={(_, newPage) => setPage(newPage)} color="primary" />
         </Box>
       )}
 
-      {/* דיאלוג הוספה/עריכה */}
+      {/* Add/Edit dialog */}
       <Dialog open={dialog.open} onClose={() => setDialog({ open: false, mode: 'add' })} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {dialog.mode === 'add' ? 'הוספת משתמש חדש' : 'עריכת משתמש'}
-        </DialogTitle>
+        <DialogTitle>{dialog.mode === 'add' ? 'הוספת משתמש חדש' : 'עריכת משתמש'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <TextField
@@ -428,7 +477,7 @@ const AdminUsersPage: React.FC = () => {
               fullWidth
               label="תעודת זהות"
               value={formData.idNumber || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, idNumber: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, idNumber: e.target.value }))}
               error={Boolean(errors.idNumber)}
               helperText={errors.idNumber}
               inputProps={{ maxLength: 9 }}
@@ -438,7 +487,7 @@ const AdminUsersPage: React.FC = () => {
               fullWidth
               label="אימייל"
               value={formData.email || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
               error={Boolean(errors.email)}
               helperText={errors.email}
               required
@@ -447,7 +496,7 @@ const AdminUsersPage: React.FC = () => {
               <InputLabel>תפקיד</InputLabel>
               <Select
                 value={formData.role || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as 'מנהל' | 'סטודנט' }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value as Role }))}
                 label="תפקיד"
               >
                 <MenuItem value="סטודנט">סטודנט</MenuItem>
@@ -463,7 +512,7 @@ const AdminUsersPage: React.FC = () => {
               control={
                 <Switch
                   checked={formData.isActive ?? true}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.checked }))}
                 />
               }
               label="פעיל"
@@ -471,27 +520,21 @@ const AdminUsersPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialog({ open: false, mode: 'add' })}>
-            ביטול
-          </Button>
+          <Button onClick={() => setDialog({ open: false, mode: 'add' })}>ביטול</Button>
           <Button variant="contained" onClick={handleSaveUser}>
             שמירה
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* דיאלוג מחיקה */}
+      {/* Delete dialog */}
       <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false })}>
         <DialogTitle>מחיקת משתמש</DialogTitle>
         <DialogContent>
-          <Typography>
-            למחוק את המשתמש {deleteDialog.user?.fullName}? פעולה זו לא ניתנת לשחזור.
-          </Typography>
+          <Typography>למחוק את המשתמש {deleteDialog.user?.fullName}? פעולה זו לא ניתנת לשחזור.</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialog({ open: false })}>
-            ביטול
-          </Button>
+          <Button onClick={() => setDeleteDialog({ open: false })}>ביטול</Button>
           <Button variant="contained" color="error" onClick={handleConfirmDelete}>
             מחיקה
           </Button>
@@ -505,10 +548,7 @@ const AdminUsersPage: React.FC = () => {
         onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}
-        >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}>
           {snackbar.message}
         </Alert>
       </Snackbar>

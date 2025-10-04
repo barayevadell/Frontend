@@ -1,3 +1,4 @@
+// src/pages/Home.tsx
 import React from 'react';
 import {
   Box,
@@ -14,8 +15,9 @@ import {
 } from '@mui/material';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { readAll, writeAll } from '@lib/storage'; // ⚡ נשתמש בגרסה שמחוברת לפיירסטור
-import { writeAllUsers } from '@lib/storage';
+
+// Storage helpers (your project wires these to Firestore/localStorage)
+import { readAll, writeAll, writeAllUsers } from '@lib/storage';
 import { ENTITIES } from '@config/entities';
 import { getSeed } from '../data/seed';
 import { useNavigate } from 'react-router-dom';
@@ -25,27 +27,32 @@ type Role = 'סטודנט' | 'מנהל';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+
+  // UI state
   const [role, setRole] = React.useState<Role>('סטודנט');
   const [idNumber, setIdNumber] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errors, setErrors] = React.useState<{ idNumber?: string; password?: string }>({});
   const [success, setSuccess] = React.useState(false);
 
-  // ✅ בדיקת Firestore ויצירת DEMO רק אם ריק
+  // --- DEMO ACCOUNTS (ONLY these two) ---
+  const DEMO = {
+    admin:   { id: '214305047', pass: '123123' },
+    student: { id: '213233430', pass: '213213' },
+  } as const;
+
+  // Seed demo data if empty (users + requests)
   React.useEffect(() => {
     const seedDemoData = async () => {
       try {
-        // === בדיקת משתמשים ===
+        // Seed Users if empty
         const users = await readAll('users');
         if (!Array.isArray(users) || users.length === 0) {
           const now = new Date().toISOString();
+
           const demoUsers = [
-            { idNumber: '213233430', fullName: 'ישראל כהן', role: 'מנהל' as Role, password: '213213' },
-            { idNumber: '318754962', fullName: 'דוד לוי', role: 'סטודנט' as Role, password: '123123' },
-            { idNumber: '205716483', fullName: 'מאיה כהן', role: 'סטודנט' as Role, password: '111111' },
-            { idNumber: '319274856', fullName: 'שיר אלון', role: 'סטודנט' as Role, password: '222222' },
-            { idNumber: '174205983', fullName: 'איתי סבן', role: 'סטודנט' as Role, password: '333333' },
-            { idNumber: '487126395', fullName: 'רון מזרחי', role: 'סטודנט' as Role, password: '444444' },
+            { idNumber: DEMO.admin.id,   fullName: 'ישראל כהן', role: 'מנהל' as Role,   password: DEMO.admin.pass },
+            { idNumber: DEMO.student.id, fullName: 'נועם אברהמי', role: 'סטודנט' as Role, password: DEMO.student.pass },
           ].map((u) => ({
             ...u,
             email: generateEmailFromName(u.fullName),
@@ -55,10 +62,12 @@ const Home: React.FC = () => {
           }));
 
           await writeAllUsers(demoUsers);
-          console.log('[Firestore SEED USERS] נוצרו', demoUsers.length, 'משתמשי דמו');
+          if ((import.meta as any).env?.DEV) {
+            console.log('[SEED USERS] created', demoUsers.length);
+          }
         }
 
-        // === בדיקת פניות ===
+        // Seed Requests if empty
         const requests = await readAll('requests');
         if (!Array.isArray(requests) || requests.length === 0) {
           const entity = ENTITIES.find((e) => e.key === 'requests');
@@ -66,58 +75,71 @@ const Home: React.FC = () => {
             const seedData = getSeed(entity);
             if (Array.isArray(seedData) && seedData.length > 0) {
               await writeAll('requests', seedData);
-              console.log('[Firestore SEED REQUESTS] נוצרו', seedData.length, 'פניות דמו');
+              if ((import.meta as any).env?.DEV) {
+                console.log('[SEED REQUESTS] created', seedData.length);
+              }
             }
           }
         }
       } catch (err) {
-        console.error('[HOME] שגיאה ביצירת נתוני דמו:', err);
+        console.error('[HOME] demo seeding failed:', err);
       }
     };
 
     seedDemoData();
   }, []);
 
-  // ✅ התחברות
+  // Map Hebrew roles to the app guard roles
+  const toAppRole = (r: Role | string) => (r === 'מנהל' ? 'admin' : 'student');
+
+  // Handle Login (demo + regular from storage)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Basic validation
     const nextErrors: { idNumber?: string; password?: string } = {};
     if (!idNumber.trim()) nextErrors.idNumber = 'שדה חובה';
     else if (!/^\d{9}$/.test(idNumber)) nextErrors.idNumber = 'יש להזין מספר ת"ז בן 9 ספרות';
     if (!password.trim()) nextErrors.password = 'שדה חובה';
     setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
-    if (Object.keys(nextErrors).length === 0) {
-      try {
-        const users = await readAll('users');
-        const user = Array.isArray(users)
-          ? users.find((u: any) => u.idNumber === idNumber && u.password === password)
-          : null;
-
-        // ✅ כניסת DEMO גלובלית — ללא קשר למה שיש בפיירסטור
-        if (
-          (idNumber === '213233430' && password === '213213') || // מנהל
-          (idNumber === '318754962' && password === '123123')     // סטודנט
-        ) {
-          const isAdmin = idNumber === '213233430';
-          setSuccess(true);
-          setTimeout(() => navigate(isAdmin ? '/admin/requests' : '/student/requests'), 800);
-          return;
-        }
-
-        if (!user) {
-          setErrors({ idNumber: 'תעודת זהות או סיסמה שגויים' });
-          return;
-        }
-
-        // מעבר לפי תפקיד
-        const isAdmin = user.role === 'מנהל';
+    try {
+      // DEMO logins (exactly two)
+      if (idNumber === DEMO.admin.id && password === DEMO.admin.pass) {
+        localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'admin', idNumber }));
         setSuccess(true);
-        setTimeout(() => navigate(isAdmin ? '/admin/requests' : '/student/requests'), 800);
-      } catch (error) {
-        console.error('[HOME] Failed to login:', error);
-        setErrors({ idNumber: 'שגיאה בגישה לנתונים' });
+        setTimeout(() => navigate('/admin/requests'), 600);
+        return;
       }
+      if (idNumber === DEMO.student.id && password === DEMO.student.pass) {
+        localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'student', idNumber }));
+        setSuccess(true);
+        setTimeout(() => navigate('/student/requests'), 600);
+        return;
+      }
+
+      // Regular login (from storage/Firestore)
+      const users = await readAll('users');
+      const user = Array.isArray(users)
+        ? users.find((u: any) => u.idNumber === idNumber && u.password === password)
+        : null;
+
+      if (!user) {
+        setErrors({ idNumber: 'תעודת זהות או סיסמה שגויים' });
+        return;
+      }
+
+      const appRole = toAppRole(user.role);
+      localStorage.setItem('blue-admin:user', JSON.stringify({ role: appRole, idNumber: user.idNumber }));
+      setSuccess(true);
+      setTimeout(() => {
+        if (appRole === 'admin') navigate('/admin/requests');
+        else navigate('/student/requests');
+      }, 600);
+    } catch (error) {
+      console.error('[HOME] login failed:', error);
+      setErrors({ idNumber: 'שגיאה בגישה לנתונים' });
     }
   };
 
@@ -133,6 +155,7 @@ const Home: React.FC = () => {
         textAlign: 'right',
       }}
     >
+      {/* RTL keeps labels/inputs right-aligned */}
       <Paper elevation={3} dir="rtl" sx={{ width: '100%', maxWidth: 460, p: 4, borderRadius: 3 }}>
         <Typography variant="h4" sx={{ mb: 3, textAlign: 'center' }}>
           התחברות
@@ -144,6 +167,7 @@ const Home: React.FC = () => {
               row
               value={role}
               onChange={(_e, v) => setRole(v as Role)}
+              aria-label="בחירת תפקיד"
               sx={{ justifyContent: 'flex-end' }}
             >
               <FormControlLabel value="סטודנט" control={<Radio />} label="סטודנט" />
@@ -167,6 +191,9 @@ const Home: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
+              label=""
+              InputLabelProps={{ shrink: false }}
+              FormHelperTextProps={{ sx: { textAlign: 'right', m: 0 } }}
             />
 
             <TextField
@@ -187,6 +214,9 @@ const Home: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
+              label=""
+              InputLabelProps={{ shrink: false }}
+              FormHelperTextProps={{ sx: { textAlign: 'right', m: 0 } }}
             />
           </Box>
 
