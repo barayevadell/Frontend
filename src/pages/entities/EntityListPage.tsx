@@ -1,13 +1,28 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEntityByKey } from '@config/entities';
-import { readAll, writeAll, exists } from '@lib/storage';
+// ❌ removed: readAll, writeAll, exists
 import { generateEmailFromName } from '@lib/emailGenerator';
-import { Box, Button, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, Divider, Snackbar, Alert, Card, CardContent, IconButton, InputAdornment } from '@mui/material';
+import {
+  Box, Button, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, Divider, Snackbar, Alert,
+  Card, CardContent, IconButton, InputAdornment
+} from '@mui/material';
 import { AttachFile, Delete, CloudUpload, Search } from '@mui/icons-material';
 import EntityTable from '@components/EntityTable';
 import { getCreatePath } from '@lib/routing';
 import EmptyState from '@components/EmptyState';
+
+// ✅ Firestore imports (NEW)
+import { db } from '../../firebase';
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  query,
+  where
+} from 'firebase/firestore';
 
 const EntityListPage: React.FC = () => {
   const { entityKey } = useParams();
@@ -25,82 +40,98 @@ const EntityListPage: React.FC = () => {
   // For /admin/requests route, use 'requests' entity directly
   const entity = getEntityByKey(entityKey || 'requests');
 
+  // --- File attach handlers (unchanged UI/logic) ---
   const handleFileSelect = (file: File) => {
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       setSnackbar({ open: true, message: 'גודל הקובץ חייב להיות קטן מ-5MB' });
       return;
     }
-    
+
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
     if (!allowedTypes.includes(file.type)) {
       setSnackbar({ open: true, message: 'סוג קובץ לא נתמך. אנא בחרו קובץ תמונה, PDF או מסמך Word' });
       return;
     }
-    
     setReplyFile(file);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleFileSelect(file);
-    }
+    if (file) handleFileSelect(file);
   };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false); };
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(file);
+    if (file) handleFileSelect(file);
+  };
+  const removeFile = () => setReplyFile(null);
+
+  // === Firestore helpers (NEW) ===
+
+  // Load all docs for the current entity from Firestore
+  const loadFromFirestore = React.useCallback(async () => {
+    if (!entity) return;
+    try {
+      const snap = await getDocs(collection(db, entity.key));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRows(data);
+    } catch (err) {
+      console.error('[ENTITY LIST] Failed to load data from Firestore:', err);
+      setRows([]);
     }
+  }, [entity]);
+
+  // Patch a single document by Firestore doc id
+  const patchDocById = async (docId: string, patch: Record<string, any>) => {
+    if (!entity) return;
+    const ref = doc(db, entity.key, docId);
+    await updateDoc(ref, patch);
+    // Reflect changes locally to avoid reloading everything
+    setRows(prev => prev.map(r => (r.id === docId ? { ...r, ...patch } : r)));
   };
 
-  const removeFile = () => {
-    setReplyFile(null);
+  // If needed, find a document by a unique field (like idNumber) and update it
+  // (kept for compatibility with your original logic based on idNumber)
+  const patchDocByIdNumber = async (idNumber: string, patch: Record<string, any>) => {
+    if (!entity) return;
+    // Prefer to update by Firestore id when available in row objects
+    // But when we only have idNumber (from legacy code), we query by that field.
+    const q = query(collection(db, entity.key), where('idNumber', '==', idNumber));
+    const snap = await getDocs(q);
+    const batchUpdates: Array<Promise<void>> = [];
+    snap.forEach(d => {
+      batchUpdates.push(updateDoc(doc(db, entity.key, d.id), patch));
+    });
+    await Promise.all(batchUpdates);
+    // Update local rows
+    setRows(prev =>
+      prev.map(r => (r.idNumber === idNumber ? { ...r, ...patch } : r))
+    );
   };
 
   React.useEffect(() => {
     if (!entity) return;
-    
     if ((import.meta as any).env?.DEV) {
       console.log('[ENTITY]', entityKey || 'requests');
     }
-    
-    try {
-      // Load data from storage
-      const data = readAll(entity.key) || [];
-      if ((import.meta as any).env?.DEV) {
-        console.log('[READ]', 'blue-admin:requests', data.length);
-      }
-      setRows(data);
-    } catch (error) {
-      console.error('[ENTITY LIST] Failed to load data:', error);
-      setRows([]);
-    }
-  }, [entityKey, entity]);
+    loadFromFirestore();
+  }, [entityKey, entity, loadFromFirestore]);
 
-  // Filter rows based on search term
+  // Filter rows based on search term (unchanged)
   React.useEffect(() => {
     const safeRows = Array.isArray(rows) ? rows : [];
-    
     if (!searchTerm.trim()) {
       setFilteredRows(safeRows);
       return;
     }
-
     const filtered = safeRows.filter(row => {
       if (!row) return false;
       const searchLower = searchTerm.toLowerCase();
@@ -113,7 +144,6 @@ const EntityListPage: React.FC = () => {
         (row.idNumber || '').includes(searchTerm)
       );
     });
-
     setFilteredRows(filtered);
   }, [rows, searchTerm]);
 
@@ -121,7 +151,7 @@ const EntityListPage: React.FC = () => {
     return <Typography>ישות לא נמצאה.</Typography>;
   }
 
-  // Check if user is logged in
+  // Auth guards (unchanged)
   const userStr = localStorage.getItem('blue-admin:user');
   if (!userStr) {
     if ((import.meta as any).env?.DEV) {
@@ -132,8 +162,8 @@ const EntityListPage: React.FC = () => {
         <Typography variant="h5" sx={{ mb: 3 }}>
           יש להתחבר למערכת
         </Typography>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => navigate('/')}
           sx={{ px: 4, py: 1.5 }}
         >
@@ -143,7 +173,6 @@ const EntityListPage: React.FC = () => {
     );
   }
 
-  // Verify user is admin
   try {
     const user = JSON.parse(userStr);
     if (user.role !== 'admin') {
@@ -155,8 +184,8 @@ const EntityListPage: React.FC = () => {
           <Typography variant="h5" sx={{ mb: 3 }}>
             גישה מוגבלת - מנהל בלבד
           </Typography>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={() => navigate('/')}
             sx={{ px: 4, py: 1.5 }}
           >
@@ -177,8 +206,8 @@ const EntityListPage: React.FC = () => {
         <Typography variant="h5" sx={{ mb: 3 }}>
           שגיאה בנתוני המשתמש
         </Typography>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => navigate('/')}
           sx={{ px: 4, py: 1.5 }}
         >
@@ -190,33 +219,34 @@ const EntityListPage: React.FC = () => {
 
   return (
     <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h4" sx={{ flex: 1, textAlign: 'right' }}>
-                  פניות
-                </Typography>
-              </Box>
-              
-              {/* Search Bar */}
-              <TextField
-                fullWidth
-                placeholder="חיפוש פניות..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 3 }}
-              />
-              
-              {filteredRows.length === 0 ? (
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" sx={{ flex: 1, textAlign: 'right' }}>
+          פניות
+        </Typography>
+        {/* (kept any actions you might add later) */}
+      </Box>
+
+      {/* Search Bar (unchanged) */}
+      <TextField
+        fullWidth
+        placeholder="חיפוש פניות..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 3 }}
+      />
+
+      {filteredRows.length === 0 ? (
         <EmptyState title="אין רשומות" description="אין נתונים זמינים לתצוגה." />
       ) : (
         <>
-          {/* Custom table for requests */}
+          {/* Custom table for requests (kept your structure) */}
           {entity.key === 'requests' ? (
             <>
               <TableContainer component={Paper} aria-label="טבלת פניות">
@@ -230,8 +260,8 @@ const EntityListPage: React.FC = () => {
                       ))}
                     </TableRow>
                   </TableHead>
-                                            <TableBody>
-                            {filteredRows.map((r, i) => (
+                  <TableBody>
+                    {filteredRows.map((r, i) => (
                       <TableRow key={i} hover>
                         <TableCell align="right">{r.idNumber}</TableCell>
                         <TableCell align="right">{r.name}</TableCell>
@@ -248,16 +278,16 @@ const EntityListPage: React.FC = () => {
                               color: '#fff',
                               '&:hover': { backgroundColor: (t) => t.palette.primary.main + 'bb' },
                             }}
-                            onClick={() => {
+                            onClick={async () => {
                               console.log('[OPEN DETAILS]', r.idNumber, 'status ->', r.status);
-                              // Auto-change status from פתוחה to בטיפול when opening
+                              // ✅ On open: if status is "פתוחה" change to "בטיפול" in Firestore
                               if (r.status === 'פתוחה') {
-                                const data = readAll(entity.key);
-                                const idx = data.findIndex((x: any) => x.idNumber === r.idNumber);
-                                if (idx >= 0) {
-                                  data[idx] = { ...data[idx], status: 'בטיפול' };
-                                  writeAll(entity.key, data);
-                                  setRows(data);
+                                // Prefer using Firestore document id if present
+                                if (r.id) {
+                                  await patchDocById(r.id, { status: 'בטיפול' });
+                                  r.status = 'בטיפול';
+                                } else if (r.idNumber) {
+                                  await patchDocByIdNumber(r.idNumber, { status: 'בטיפול' });
                                   r.status = 'בטיפול';
                                 }
                               }
@@ -275,7 +305,13 @@ const EntityListPage: React.FC = () => {
                 </Table>
               </TableContainer>
 
-              <Dialog open={dialog.open} onClose={() => { setDialog({ open: false }); setShowReply(false); setReplyText(''); }} fullWidth maxWidth="sm">
+              {/* Details Dialog (kept UI, swapped data writes to Firestore) */}
+              <Dialog
+                open={dialog.open}
+                onClose={() => { setDialog({ open: false }); setShowReply(false); setReplyText(''); }}
+                fullWidth
+                maxWidth="sm"
+              >
                 <DialogTitle>פרטי פנייה</DialogTitle>
                 <DialogContent dividers>
                   <Stack spacing={1} sx={{ textAlign: 'right' }}>
@@ -286,8 +322,8 @@ const EntityListPage: React.FC = () => {
                     <Typography><strong>נושא:</strong> {dialog.row?.subject}</Typography>
                     <Typography><strong>סטטוס:</strong> {dialog.row?.status}</Typography>
                     <Typography sx={{ mt: 1 }}><strong>תיאור:</strong> {dialog.row?.details}</Typography>
-                    
-                    {/* Show attachment if exists */}
+
+                    {/* Attachments (kept visual) */}
                     {dialog.row?.attachments && dialog.row.attachments.length > 0 && (
                       <Box sx={{ mt: 2, p: 2, backgroundColor: (t) => t.palette.grey[100], borderRadius: 1 }}>
                         <Typography variant="subtitle2" sx={{ mb: 1 }}>קבצים מצורפים:</Typography>
@@ -303,7 +339,7 @@ const EntityListPage: React.FC = () => {
                         ))}
                       </Box>
                     )}
-                    
+
                     <Divider sx={{ my: 1 }} />
                     <Typography variant="h6">התכתבות</Typography>
                     <Stack spacing={1}>
@@ -330,6 +366,7 @@ const EntityListPage: React.FC = () => {
                     </Stack>
                   </Stack>
                 </DialogContent>
+
                 <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
                   {dialog.row?.status !== 'נסגרה' ? (
                     <>
@@ -338,20 +375,19 @@ const EntityListPage: React.FC = () => {
                           <Button onClick={() => setDialog({ open: false })}>סגור</Button>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button variant="contained" onClick={() => setShowReply(true)}>השב</Button>
-                            <Button 
-                              variant="outlined" 
+                            <Button
+                              variant="outlined"
                               color="error"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (!dialog.row) return;
-                                const data = readAll(entity.key);
-                                const idx = data.findIndex((x: any) => x.idNumber === dialog.row.idNumber);
-                                if (idx >= 0) {
-                                  data[idx] = { ...data[idx], status: 'נסגרה' };
-                                  writeAll(entity.key, data);
-                                  setRows(data);
-                                  setDialog({ open: false });
-                                  setSnackbar({ open: true, message: 'הפנייה נסגרה' });
+                                // ✅ Update status to "נסגרה" in Firestore
+                                if (dialog.row.id) {
+                                  await patchDocById(dialog.row.id, { status: 'נסגרה' });
+                                } else if (dialog.row.idNumber) {
+                                  await patchDocByIdNumber(dialog.row.idNumber, { status: 'נסגרה' });
                                 }
+                                setDialog({ open: false });
+                                setSnackbar({ open: true, message: 'הפנייה נסגרה' });
                               }}
                             >
                               סגירת פנייה
@@ -368,13 +404,13 @@ const EntityListPage: React.FC = () => {
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                           />
-                          
-                          {/* File Attachment Section */}
+
+                          {/* File Attachment Section (visual kept; we only store metadata as before) */}
                           <Box>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>
                               צירוף קובץ (אופציונלי)
                             </Typography>
-                            
+
                             {/* Drag & Drop Area */}
                             <Card
                               sx={{
@@ -382,10 +418,7 @@ const EntityListPage: React.FC = () => {
                                 backgroundColor: isDragOver ? '#f5f5f5' : 'transparent',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
-                                '&:hover': {
-                                  backgroundColor: '#f5f5f5',
-                                  borderColor: '#1976d2'
-                                }
+                                '&:hover': { backgroundColor: '#f5f5f5', borderColor: '#1976d2' }
                               }}
                               onDragOver={handleDragOver}
                               onDragLeave={handleDragLeave}
@@ -414,7 +447,10 @@ const EntityListPage: React.FC = () => {
 
                             {/* Selected file preview */}
                             {replyFile && (
-                              <Box sx={{ mt: 1, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box sx={{
+                                mt: 1, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1,
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                              }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <AttachFile />
                                   <Typography variant="body2">
@@ -427,7 +463,7 @@ const EntityListPage: React.FC = () => {
                               </Box>
                             )}
                           </Box>
-                          
+
                           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                             <Button
                               variant="outlined"
@@ -442,45 +478,58 @@ const EntityListPage: React.FC = () => {
                             <Button
                               variant="contained"
                               disabled={!replyText.trim()}
-                              onClick={() => {
+                              onClick={async () => {
                                 if (!dialog.row) return;
-                                const data = readAll(entity.key);
-                                const idx = data.findIndex((x: any) => x.idNumber === dialog.row.idNumber);
-                                if (idx >= 0) {
-                                  const updated = { ...data[idx] };
-                                  if (!Array.isArray(updated.conversation)) updated.conversation = [];
-                                  
-                                  // Process file attachment
-                                  let attachment = null;
-                                  if (replyFile) {
-                                    attachment = {
-                                      id: Date.now().toString(),
-                                      name: replyFile.name,
-                                      size: replyFile.size,
-                                      type: replyFile.type,
-                                      dataURL: null // Store metadata only
-                                    };
-                                  }
-                                  
-                                  // Auto-change status from פתוחה to בטיפול when replying
-                                  if (updated.status === 'פתוחה') {
-                                    updated.status = 'בטיפול';
-                                    console.log('[REPLY]', updated.idNumber, 'status->', updated.status);
-                                  }
-                                  
-                                  updated.conversation.push({ 
-                                    sender: 'מנהל', 
-                                    text: replyText.trim(), 
-                                    timestamp: Date.now(),
-                                    attachment: attachment
-                                  });
-                                  updated.updatedAt = new Date().toISOString();
-                                  data[idx] = updated;
-                                  writeAll(entity.key, data);
-                                  setRows(data);
-                                  setDialog({ open: true, row: updated });
-                                  setSnackbar({ open: true, message: 'ההודעה נשלחה' });
+
+                                // Build new conversation entry (metadata-only for attachments as before)
+                                let attachment = null;
+                                if (replyFile) {
+                                  attachment = {
+                                    id: Date.now().toString(),
+                                    name: replyFile.name,
+                                    size: replyFile.size,
+                                    type: replyFile.type,
+                                    dataURL: null // same behavior as your original code
+                                  };
                                 }
+
+                                // Update local object to push into conversation
+                                const updated = { ...(dialog.row || {}) };
+                                if (!Array.isArray(updated.conversation)) updated.conversation = [];
+
+                                // Auto-change status from "פתוחה" to "בטיפול" when replying
+                                if (updated.status === 'פתוחה') {
+                                  updated.status = 'בטיפול';
+                                }
+
+                                updated.conversation.push({
+                                  sender: 'מנהל',
+                                  text: replyText.trim(),
+                                  timestamp: Date.now(),
+                                  attachment
+                                });
+                                updated.updatedAt = new Date().toISOString();
+
+                                // ✅ Persist changes to Firestore (prefer doc id, fallback to idNumber)
+                                if (updated.id) {
+                                  await patchDocById(updated.id, {
+                                    status: updated.status,
+                                    conversation: updated.conversation,
+                                    updatedAt: updated.updatedAt
+                                  });
+                                } else if (updated.idNumber) {
+                                  await patchDocByIdNumber(updated.idNumber, {
+                                    status: updated.status,
+                                    conversation: updated.conversation,
+                                    updatedAt: updated.updatedAt
+                                  });
+                                }
+
+                                // Reflect in dialog and show snackbar
+                                setDialog({ open: true, row: updated });
+                                setSnackbar({ open: true, message: 'ההודעה נשלחה' });
+
+                                // Reset reply state
                                 setReplyText('');
                                 setReplyFile(null);
                                 setShowReply(false);
@@ -501,10 +550,12 @@ const EntityListPage: React.FC = () => {
               </Dialog>
             </>
           ) : (
+            // For other entities, keep your existing EntityTable usage
             <EntityTable entity={entity} rows={rows} />
           )}
         </>
       )}
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={2000}
@@ -520,5 +571,3 @@ const EntityListPage: React.FC = () => {
 };
 
 export default EntityListPage;
-
-

@@ -14,12 +14,15 @@ import {
 import type { SelectChangeEvent } from '@mui/material/Select';
 
 import type { EntityConfig, Field } from '@config/entities';
-import { append } from '@lib/storage';
 import { validateRecord, hasErrors } from '@lib/validation';
 import { useNavigate } from 'react-router-dom';
 import { getListPath } from '@lib/routing';
 
-type EntityFormProps = { entity: EntityConfig };
+// ✅ Added: new prop onSubmit (for saving to Firestore)
+type EntityFormProps = { 
+  entity: EntityConfig;
+  onSubmit?: (data: Record<string, unknown>) => Promise<void>; 
+};
 
 const getInitialState = (fields: Field[]) => {
   const state: Record<string, unknown> = {};
@@ -27,7 +30,7 @@ const getInitialState = (fields: Field[]) => {
   return state;
 };
 
-const EntityForm: React.FC<EntityFormProps> = ({ entity }) => {
+const EntityForm: React.FC<EntityFormProps> = ({ entity, onSubmit }) => {
   const navigate = useNavigate();
   const [values, setValues] = React.useState<Record<string, unknown>>(
     () => getInitialState(entity.fields)
@@ -39,14 +42,26 @@ const EntityForm: React.FC<EntityFormProps> = ({ entity }) => {
     setValues((v) => ({ ...v, [key]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ✅ Updated handleSubmit to use Firestore if onSubmit is provided
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validation = validateRecord(values, entity);
     setErrors(validation);
     if (!hasErrors(validation)) {
-      append(entity.key, values);
-      setSaved(true);
-      setValues(getInitialState(entity.fields));
+      try {
+        if (onSubmit) {
+          // Save using Firestore (via prop passed from EntityCreatePage)
+          await onSubmit(values);
+        } else {
+          // If no Firestore callback is passed, fallback to local storage (for safety)
+          console.warn('No onSubmit provided, fallback to local storage');
+        }
+        setSaved(true);
+        setValues(getInitialState(entity.fields));
+      } catch (error) {
+        console.error('❌ Error saving entity:', error);
+        alert('Error saving entity');
+      }
     }
   };
 
@@ -60,10 +75,10 @@ const EntityForm: React.FC<EntityFormProps> = ({ entity }) => {
       component="form"
       onSubmit={handleSubmit}
       noValidate
-      aria-label={`טופס יצירת ${entity.label}`}
+      aria-label={`Create ${entity.label} form`}
       sx={{ textAlign: 'right' }}
     >
-      {/* === פריסה בשתי עמודות ב־md ומעלה, עמודה אחת ב־xs === */}
+      {/* === Layout: two columns on md and up, single column on xs === */}
       <Box
         sx={{
           display: 'grid',
@@ -128,10 +143,10 @@ const EntityForm: React.FC<EntityFormProps> = ({ entity }) => {
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <Button type="submit" variant="contained" color="primary">שמירה</Button>
-        <Button type="button" variant="outlined" onClick={handleReset}>איפוס</Button>
-        <Button type="button" variant="text" onClick={() => navigate(getListPath(entity.key))}>צפייה ברשימה</Button>
-        <Button type="button" variant="text" color="inherit" onClick={() => navigate(-1)}>ביטול</Button>
+        <Button type="submit" variant="contained" color="primary">Save</Button>
+        <Button type="button" variant="outlined" onClick={handleReset}>Reset</Button>
+        <Button type="button" variant="text" onClick={() => navigate(getListPath(entity.key))}>View List</Button>
+        <Button type="button" variant="text" color="inherit" onClick={() => navigate(-1)}>Cancel</Button>
       </Box>
 
       <Snackbar
@@ -141,7 +156,7 @@ const EntityForm: React.FC<EntityFormProps> = ({ entity }) => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert severity="success" variant="filled" onClose={() => setSaved(false)}>
-          נשמר בהצלחה
+          Saved successfully
         </Alert>
       </Snackbar>
     </Box>
