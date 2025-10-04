@@ -1,3 +1,4 @@
+// src/pages/student/StudentRequestsPage.tsx
 import React from 'react';
 import {
   Box,
@@ -98,19 +99,24 @@ const StudentRequestsPage: React.FC = () => {
     );
   }
 
-  // טעינת פניות הסטודנט
+  // ✅ טעינת פניות הסטודנט (Firestore – אסינכרוני)
   React.useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('blue-admin:user');
-      if (!userStr) return;
-      const userObj = JSON.parse(userStr);
-      const allRequests = readAll('requests') || [];
-      const studentRequests = allRequests.filter((r: any) => r && r.idNumber === userObj.idNumber);
-      setRows(studentRequests);
-    } catch (error) {
-      console.error('[STUDENT REQUESTS] Failed to load data:', error);
-      setRows([]);
-    }
+    (async () => {
+      try {
+        const userStr = localStorage.getItem('blue-admin:user');
+        if (!userStr) return;
+        const userObj = JSON.parse(userStr);
+
+        const allRequests = await readAll('requests') || [];
+        const studentRequests = allRequests.filter(
+          (r: any) => r && r.idNumber === userObj.idNumber
+        );
+        setRows(studentRequests);
+      } catch (error) {
+        console.error('[STUDENT REQUESTS] Failed to load data:', error);
+        setRows([]);
+      }
+    })();
   }, []);
 
   // סינון
@@ -167,7 +173,6 @@ const StudentRequestsPage: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: (t) => t.palette.primary.main }}>
-                  {/* סדר עמודות חדש: הצגה (שמאל) | תאריך עדכון | סטטוס | נושא (ימין) */}
                   <TableCell align="left" sx={{ color: '#111', fontWeight: 800 }}>הצגה</TableCell>
                   <TableCell align="right" sx={{ color: '#111', fontWeight: 800 }}>תאריך עדכון</TableCell>
                   <TableCell align="right" sx={{ color: '#111', fontWeight: 800 }}>סטטוס</TableCell>
@@ -178,7 +183,6 @@ const StudentRequestsPage: React.FC = () => {
               <TableBody>
                 {filteredRows.map((r, i) => (
                   <TableRow key={i} hover>
-                    {/* הצגה – תא שמאלי */}
                     <TableCell align="left">
                       <Button
                         variant="contained"
@@ -194,7 +198,6 @@ const StudentRequestsPage: React.FC = () => {
                       </Button>
                     </TableCell>
 
-                    {/* תאריך עדכון */}
                     <TableCell align="right">
                       {r.updatedAt
                         ? new Date(r.updatedAt).toLocaleDateString('he-IL')
@@ -203,10 +206,7 @@ const StudentRequestsPage: React.FC = () => {
                         : 'לא זמין'}
                     </TableCell>
 
-                    {/* סטטוס */}
                     <TableCell align="right">{r.status}</TableCell>
-
-                    {/* נושא – תא ימני */}
                     <TableCell align="right">{r.subject}</TableCell>
                   </TableRow>
                 ))}
@@ -214,7 +214,7 @@ const StudentRequestsPage: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {/* דיאלוג פרטי פנייה (ללא שינויי RTL נוספים) */}
+          {/* דיאלוג פרטי פנייה */}
           <Dialog
             open={dialog.open}
             onClose={() => {
@@ -284,9 +284,9 @@ const StudentRequestsPage: React.FC = () => {
                     <Button
                       variant="contained"
                       disabled={!replyText.trim()}
-                      onClick={() => {
+                      onClick={async () => {
                         if (!dialog.row) return;
-                        const data = readAll('requests') || [];
+                        const data = await readAll('requests') || [];
                         const idx = data.findIndex(
                           (x: any) =>
                             x &&
@@ -303,7 +303,7 @@ const StudentRequestsPage: React.FC = () => {
                           });
                           updated.updatedAt = new Date().toISOString();
                           data[idx] = updated;
-                          writeAll('requests', data);
+                          await writeAll('requests', data);
                           setRows(data.filter((r: any) => r.idNumber === dialog.row.idNumber));
                           setDialog({ open: true, row: updated });
                           setSnackbar({ open: true, message: 'ההודעה נשלחה' });
