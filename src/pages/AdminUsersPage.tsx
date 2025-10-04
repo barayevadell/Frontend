@@ -1,4 +1,4 @@
-// src/pages/...(adjust path)/AdminUsersPage.tsx
+// src/pages/AdminUsersPage.tsx
 import React from 'react';
 import {
   Box,
@@ -39,7 +39,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 
-// ✅ Firestore
+// Firestore
 import {
   collection,
   getDocs,
@@ -50,30 +50,26 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-
-
 import { db } from '../firebase';
 
 import { generateEmailFromName } from '@lib/emailGenerator';
 
-// === Local User type (so we don't depend on external paths) ===
 type Role = 'סטודנט' | 'מנהל';
 export interface User {
-  id?: string;        // Firestore document ID
-  idNumber: string;   // 9 digits
+  id?: string;
+  idNumber: string;
   fullName: string;
   email: string;
   role: Role;
   isActive: boolean;
-  createdAt: string;  // ISO
-  updatedAt: string;  // ISO
+  createdAt: string;
+  updatedAt: string;
 }
 
 type SortField = 'fullName' | 'idNumber' | 'email' | 'role' | 'isActive';
 type SortDirection = 'asc' | 'desc';
 
 const AdminUsersPage: React.FC = () => {
-  // ===== UI state =====
   const [users, setUsers] = React.useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = React.useState<User[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -99,8 +95,6 @@ const AdminUsersPage: React.FC = () => {
   });
 
   // ===== Firestore helpers =====
-
-  /** Load all users from Firestore (collection: 'users') */
   const loadUsers = React.useCallback(async () => {
     try {
       const snap = await getDocs(collection(db, 'users'));
@@ -113,7 +107,6 @@ const AdminUsersPage: React.FC = () => {
     }
   }, []);
 
-  /** Check if there are any requests for a given user (collection: 'requests') */
   const hasUserRequests = React.useCallback(async (idNumber: string) => {
     try {
       const q = query(collection(db, 'requests'), where('idNumber', '==', idNumber));
@@ -121,19 +114,14 @@ const AdminUsersPage: React.FC = () => {
       return !snap.empty;
     } catch (err) {
       console.error('[USERS] check requests failed:', err);
-      // Be safe: if error, treat as "has requests" to avoid accidental delete
       return true;
     }
   }, []);
 
-  // ===== Effects =====
-
-  // Initial load
   React.useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
-  // Filter + sort when dependencies change
   React.useEffect(() => {
     const safeUsers = Array.isArray(users) ? users : [];
     let filtered = safeUsers.filter((user) => {
@@ -149,27 +137,20 @@ const AdminUsersPage: React.FC = () => {
     filtered.sort((a: User, b: User) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
-
       if (typeof aValue === 'string') aValue = aValue.toLowerCase();
       if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-
-      if (sortDirection === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
+      if (sortDirection === 'asc') return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
     });
 
     setFilteredUsers(filtered);
     setPage(1);
   }, [users, searchTerm, sortField, sortDirection]);
 
-  // ===== UI handlers =====
-
+  // ===== Handlers =====
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
+    if (sortField === field) setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    else {
       setSortField(field);
       setSortDirection('asc');
     }
@@ -200,7 +181,10 @@ const AdminUsersPage: React.FC = () => {
   const handleToggleActive = async (user: User) => {
     try {
       if (!user.id) return;
-      await updateDoc(doc(db, 'users', user.id), { isActive: !user.isActive, updatedAt: new Date().toISOString() });
+      await updateDoc(doc(db, 'users', user.id), {
+        isActive: !user.isActive,
+        updatedAt: new Date().toISOString(),
+      });
       await loadUsers();
       setSnackbar({
         open: true,
@@ -213,7 +197,6 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
-  // Auto-generate email while typing name (can still be edited)
   const handleNameChange = (name: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -222,45 +205,30 @@ const AdminUsersPage: React.FC = () => {
     }));
   };
 
-  // ===== Validation =====
+  // ===== Validation & Save =====
   const validateForm = async (): Promise<boolean> => {
     const newErrors: Record<string, string> = {};
+    if (!formData.fullName?.trim()) newErrors.fullName = 'יש להזין שם מלא תקין';
+    else if (formData.fullName.trim().length < 2) newErrors.fullName = 'השם חייב להכיל לפחות 2 תווים';
 
-    // fullName
-    if (!formData.fullName?.trim()) {
-      newErrors.fullName = 'יש להזין שם מלא תקין';
-    } else if (formData.fullName.trim().length < 2) {
-      newErrors.fullName = 'השם חייב להכיל לפחות 2 תווים';
-    }
-
-    // idNumber
-    if (!formData.idNumber?.trim() || !/^\d{9}$/.test(formData.idNumber)) {
+    if (!formData.idNumber?.trim() || !/^\d{9}$/.test(formData.idNumber))
       newErrors.idNumber = 'יש להזין מספר תעודת זהות בן 9 ספרות';
-    } else {
-      // Uniqueness check in Firestore when adding / or changing idNumber
+    else {
       const qSameId = query(collection(db, 'users'), where('idNumber', '==', formData.idNumber));
       const snap = await getDocs(qSameId);
       const existsInDb = snap.docs.some((d) => d.id !== (dialog.user?.id ?? ''));
-      if (existsInDb) {
-        newErrors.idNumber = 'תעודת זהות קיימת במערכת';
-      }
+      if (existsInDb) newErrors.idNumber = 'תעודת זהות קיימת במערכת';
     }
 
-    // email
-    if (!formData.email?.trim() || !formData.email.includes('@')) {
+    if (!formData.email?.trim() || !formData.email.includes('@'))
       newErrors.email = 'כתובת אימייל לא תקינה';
-    }
 
-    // role
-    if (!formData.role) {
-      newErrors.role = 'יש לבחור תפקיד';
-    }
+    if (!formData.role) newErrors.role = 'יש לבחור תפקיד';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Save (add/edit) user in Firestore
   const handleSaveUser = async () => {
     if (!(await validateForm())) return;
 
@@ -291,39 +259,12 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
-  // Confirm delete with "has requests" guard
-  const handleConfirmDelete = async () => {
-    const u = deleteDialog.user;
-    if (!u) return;
-
-    try {
-      const hasReq = await hasUserRequests(u.idNumber);
-      if (hasReq) {
-        setSnackbar({
-          open: true,
-          message: 'לא ניתן למחוק משתמש עם פניות פעילות/היסטוריות. אפשר להשבית במקום.',
-          severity: 'error',
-        });
-        setDeleteDialog({ open: false });
-        return;
-      }
-
-      if (!u.id) return;
-      await deleteDoc(doc(db, 'users', u.id));
-      setDeleteDialog({ open: false });
-      await loadUsers();
-      setSnackbar({ open: true, message: 'המשתמש נמחק', severity: 'success' });
-    } catch (err) {
-      console.error('[USERS] delete failed:', err);
-      setSnackbar({ open: true, message: 'מחיקה נכשלה', severity: 'error' });
-    }
-  };
-
-  // ===== Pagination derived values =====
+  // ===== Pagination =====
   const safeFiltered = Array.isArray(filteredUsers) ? filteredUsers : [];
   const paginatedUsers = safeFiltered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
   const totalPages = Math.ceil(safeFiltered.length / itemsPerPage);
 
+  // ===== Render =====
   return (
     <Box dir="rtl">
       {/* Header */}
@@ -331,7 +272,20 @@ const AdminUsersPage: React.FC = () => {
         <Typography variant="h4" sx={{ textAlign: 'right' }}>
           ניהול משתמשים
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddUser} sx={{ px: 3 }}>
+
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleAddUser}
+          sx={{
+            px: 3,
+            pr: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+
+          }}
+        >
           הוסף משתמש
         </Button>
       </Box>
@@ -461,53 +415,115 @@ const AdminUsersPage: React.FC = () => {
 
       {/* Add/Edit dialog */}
       <Dialog open={dialog.open} onClose={() => setDialog({ open: false, mode: 'add' })} fullWidth maxWidth="sm">
-        <DialogTitle>{dialog.mode === 'add' ? 'הוספת משתמש חדש' : 'עריכת משתמש'}</DialogTitle>
+        <DialogTitle sx={{ textAlign: 'center' }}>
+          {dialog.mode === 'add' ? 'הוספת משתמש חדש' : 'עריכת משתמש'}
+        </DialogTitle>
+
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
+            {/* שם מלא */}
             <TextField
               fullWidth
               label="שם מלא"
               value={formData.fullName || ''}
               onChange={(e) => handleNameChange(e.target.value)}
               error={Boolean(errors.fullName)}
-              helperText={errors.fullName}
+              helperText={errors.fullName || ' '}
               required
+              sx={{
+                '& .MuiOutlinedInput-root': { direction: 'rtl', textAlign: 'right' },
+                '& .MuiOutlinedInput-notchedOutline': { direction: 'rtl', textAlign: 'right' },
+                '& legend': { right: 8, left: 'auto', width: 'auto' }, // החור בצד ימין
+                '& .MuiInputLabel-root': { right: 24, left: 'auto', transformOrigin: 'top right' },
+              }}
+              inputProps={{ style: { textAlign: 'right', direction: 'rtl' } }}
             />
+
+            {/* תעודת זהות */}
             <TextField
               fullWidth
               label="תעודת זהות"
               value={formData.idNumber || ''}
               onChange={(e) => setFormData((prev) => ({ ...prev, idNumber: e.target.value }))}
               error={Boolean(errors.idNumber)}
-              helperText={errors.idNumber}
-              inputProps={{ maxLength: 9 }}
+              helperText={errors.idNumber || ' '}
+              inputProps={{ maxLength: 9, style: { textAlign: 'right', direction: 'rtl' } }}
               required
+              sx={{
+                '& .MuiOutlinedInput-root': { direction: 'rtl', textAlign: 'right' },
+                '& .MuiOutlinedInput-notchedOutline': { direction: 'rtl', textAlign: 'right' },
+                '& legend': { right: 8, left: 'auto', width: 'auto' },
+                '& .MuiInputLabel-root': { right: 24, left: 'auto', transformOrigin: 'top right' },
+              }}
             />
+
+            {/* אימייל */}
             <TextField
               fullWidth
               label="אימייל"
               value={formData.email || ''}
               onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
               error={Boolean(errors.email)}
-              helperText={errors.email}
+              helperText={errors.email || ' '}
               required
+              sx={{
+                '& .MuiOutlinedInput-root': { direction: 'rtl', textAlign: 'right' },
+                '& .MuiOutlinedInput-notchedOutline': { direction: 'rtl', textAlign: 'right' },
+                '& legend': { right: 8, left: 'auto', width: 'auto' },
+                '& .MuiInputLabel-root': { right: 24, left: 'auto', transformOrigin: 'top right' },
+              }}
+              inputProps={{ style: { textAlign: 'right', direction: 'rtl' } }}
             />
-            <FormControl fullWidth required error={Boolean(errors.role)}>
-              <InputLabel>תפקיד</InputLabel>
+
+            {/* תפקיד */}
+            <FormControl
+              fullWidth
+              required
+              error={Boolean(errors.role)}
+              sx={{
+                // יישור ועקביות כמו בשדות TextField מעל
+                '& .MuiOutlinedInput-root': { direction: 'rtl', textAlign: 'right' },
+                '& .MuiOutlinedInput-notchedOutline': { direction: 'rtl', textAlign: 'right' },
+                '& legend': { right: 8, left: 'auto', width: 'auto' }, // החור בצד ימין
+                '& .MuiInputLabel-root': { right: 24, left: 'auto', transformOrigin: 'top right' },
+              }}
+            >
+              <InputLabel
+                sx={{ right: 24, left: 'auto', transformOrigin: 'top right' }}
+              >
+                תפקיד
+              </InputLabel>
+
               <Select
-                value={formData.role || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value as Role }))}
                 label="תפקיד"
+                value={formData.role || ''}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, role: e.target.value as Role }))
+                }
+                sx={{
+                  direction: 'rtl',
+                  textAlign: 'right',
+                  '& .MuiSelect-select': { textAlign: 'right' },
+                  '& .MuiSelect-icon': { left: 12, right: 'auto' },
+                  // חיזוק ממוקד גם בתוך ה-OutlinedInput של ה-Select
+                  '& legend': { right: 8, left: 'auto', width: 'auto' },
+                }}
+                MenuProps={{
+                  PaperProps: { dir: 'rtl', style: { textAlign: 'right' } },
+                }}
               >
                 <MenuItem value="סטודנט">סטודנט</MenuItem>
                 <MenuItem value="מנהל">מנהל</MenuItem>
               </Select>
+
               {errors.role && (
                 <Typography variant="caption" color="error" sx={{ mt: 0.5, mr: 2 }}>
                   {errors.role}
                 </Typography>
               )}
             </FormControl>
+
+            {/* פעיל */}
             <FormControlLabel
               control={
                 <Switch
@@ -516,10 +532,13 @@ const AdminUsersPage: React.FC = () => {
                 />
               }
               label="פעיל"
+              sx={{ mr: 0 }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
+
+        {/* כפתורים — לשמאל */}
+        <DialogActions sx={{ justifyContent: 'flex-start' }}>
           <Button onClick={() => setDialog({ open: false, mode: 'add' })}>ביטול</Button>
           <Button variant="contained" onClick={handleSaveUser}>
             שמירה
@@ -531,11 +550,36 @@ const AdminUsersPage: React.FC = () => {
       <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false })}>
         <DialogTitle>מחיקת משתמש</DialogTitle>
         <DialogContent>
-          <Typography>למחוק את המשתמש {deleteDialog.user?.fullName}? פעולה זו לא ניתנת לשחזור.</Typography>
+          <Typography>
+            למחוק את המשתמש {deleteDialog.user?.fullName}? פעולה זו לא ניתנת לשחזור.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialog({ open: false })}>ביטול</Button>
-          <Button variant="contained" color="error" onClick={handleConfirmDelete}>
+          <Button variant="contained" color="error" onClick={async () => {
+            const u = deleteDialog.user;
+            if (!u) return;
+            try {
+              const hasReq = await hasUserRequests(u.idNumber);
+              if (hasReq) {
+                setSnackbar({
+                  open: true,
+                  message: 'לא ניתן למחוק משתמש עם פניות פעילות/היסטוריות. אפשר להשבית במקום.',
+                  severity: 'error',
+                });
+                setDeleteDialog({ open: false });
+                return;
+              }
+              if (!u.id) return;
+              await deleteDoc(doc(db, 'users', u.id));
+              setDeleteDialog({ open: false });
+              await loadUsers();
+              setSnackbar({ open: true, message: 'המשתמש נמחק', severity: 'success' });
+            } catch (err) {
+              console.error('[USERS] delete failed:', err);
+              setSnackbar({ open: true, message: 'מחיקה נכשלה', severity: 'error' });
+            }
+          }}>
             מחיקה
           </Button>
         </DialogActions>
@@ -548,7 +592,10 @@ const AdminUsersPage: React.FC = () => {
         onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}>
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
