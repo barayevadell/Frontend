@@ -1,5 +1,5 @@
 // src/pages/student/StudentRequestsPage.tsx
-import React from 'react';
+import React, { useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -34,8 +34,10 @@ import {
   doc,
   updateDoc,
 } from 'firebase/firestore';
+import { LoadingContext } from '../App';
 
 const StudentRequestsPage: React.FC = () => {
+  const { setLoading } = useContext(LoadingContext);
   const navigate = useNavigate();
   const [rows, setRows] = React.useState<any[]>([]);
   const [filteredRows, setFilteredRows] = React.useState<any[]>([]);
@@ -111,21 +113,23 @@ const StudentRequestsPage: React.FC = () => {
 
   // ✅ Load student's requests (real-time from Firestore)
   React.useEffect(() => {
-    if (!user?.idNumber) return; // ✅ prevents crash before user loaded
+    setLoading(true);
     const q = query(collection(db, 'requests'), where('idNumber', '==', user.idNumber));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setRows(data);
+        setLoading(false);
       },
       (error) => {
         console.error('[STUDENT REQUESTS] Firestore listener error:', error);
         setRows([]);
+        setLoading(false);
       }
     );
     return () => unsubscribe();
-  }, [user?.idNumber]);
+  }, [user?.idNumber, setLoading]);
 
   // Filter search results
   React.useEffect(() => {

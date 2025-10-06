@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -25,6 +25,7 @@ import {
 } from 'recharts';
 import { db } from '../firebase';
 import { collection, onSnapshot, query, where, Query } from 'firebase/firestore';
+import { LoadingContext } from '../App';
 
 // ===== Types =====
 type Sender = 'מנהל' | 'סטודנט';
@@ -53,6 +54,12 @@ const normalizeStatus = (raw: unknown): RequestStatus => {
 // ===== Component =====
 const StatisticsPage: React.FC = () => {
   const theme = useTheme();
+  const { setLoading } = useContext(LoadingContext);
+
+  useEffect(() => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 1000); // דוגמה בלבד, להחליף ב-fetch אמיתי
+  }, [setLoading]);
 
   // Get user
   const user = React.useMemo(() => {
@@ -70,13 +77,12 @@ const StatisticsPage: React.FC = () => {
 
   // Firestore data
   const [allRequests, setAllRequests] = React.useState<RequestItem[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoadingState] = React.useState(true);
 
   // ===== Firestore listener =====
   React.useEffect(() => {
-    let q: Query = collection(db, 'requests'); // ✅ טיפוס נכון מראש
+    let q: Query = collection(db, 'requests');
 
-    // אם המשתמש סטודנט → רואים רק את הפניות שלו
     if (userRole === 'סטודנט' && userId) {
       q = query(collection(db, 'requests'), where('idNumber', '==', userId));
     }
@@ -84,7 +90,7 @@ const StatisticsPage: React.FC = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as RequestItem[];
       setAllRequests(data);
-      setLoading(false);
+      setLoadingState(false);
     });
 
     return () => unsubscribe();
@@ -150,7 +156,7 @@ const StatisticsPage: React.FC = () => {
     { name: 'נסגרות', value: statistics.closed },
   ];
 
-  // ===== Render =====
+  // ===== UI STATES =====
   if (!isLoggedIn) {
     return (
       <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '60vh', textAlign: 'right' }}>
@@ -173,98 +179,114 @@ const StatisticsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 20 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  // ===== Page =====
+  // ===== MAIN RETURN =====
   return (
-    <Box>
-      <Typography variant="h4" sx={{ mb: 3, textAlign: 'right' }}>
-        סטטיסטיקה
-      </Typography>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        minHeight: '100vh',
+        backgroundColor: theme.palette.background.default,
+        p: { xs: 2, sm: 4 },
+      }}
+    >
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 15000, // 👈 מרכז את התוכן ברוחב נעים
+          mx: 'auto',
+          textAlign: 'right',
+        }}
+      >
+        <Typography variant="h4" sx={{ mb: 3 }}>
+          סטטיסטיקה
+        </Typography>
 
-      {/* Summary cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {[
-          { title: 'סה״כ פניות', value: statistics.total },
-          { title: 'פתוחות / בטיפול', value: statistics.open, color: 'primary' },
-          { title: 'נסגרו', value: statistics.closed, color: 'error' },
-          { title: 'זמן תגובה ממוצע', value: statistics.avgResponseTime },
-        ].map((item, i) => (
-          <Grid key={i} item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom>
-                  {item.title}
-                </Typography>
-                <Typography variant="h4" color={item.color || 'text.primary'}>
-                  {item.value}
-                </Typography>
-              </CardContent>
-            </Card>
+        {/* Summary cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[
+            { title: 'סה״כ פניות', value: statistics.total },
+            { title: 'פתוחות / בטיפול', value: statistics.open, color: 'primary' },
+            { title: 'נסגרו', value: statistics.closed, color: 'error' },
+            { title: 'זמן תגובה ממוצע', value: statistics.avgResponseTime },
+          ].map((item, i) => (
+            <Grid key={i} item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    {item.title}
+                  </Typography>
+                  <Typography variant="h4" color={item.color || 'text.primary'}>
+                    {item.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Charts */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, height: 420 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                התפלגות פניות
+              </Typography>
+              <ResponsiveContainer width="100%" height="90%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
           </Grid>
-        ))}
-      </Grid>
 
-      {/* Charts */}
-      <Grid container spacing={3}>
-        {/* Bar chart */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 420 }}>
-            <Typography variant="h6" sx={{ mb: 2, textAlign: 'right' }}>
-              התפלגות פניות
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
+          <Grid item xs={12} md={12}>
+            <Paper sx={{ p: 3, height: 420 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                יחס פניות (אחוזים)
+              </Typography>
+              <ResponsiveContainer width="100%" height="90%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="58%"
+                    cy="50%"
+                    outerRadius={110}
+                    dataKey="value"
+                    label={({ name, percent }: { name: string; percent?: number }) =>
+                      `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
+                    }
+                    labelLine={true}
+                  >
+                    <Cell fill={theme.palette.primary.main} />
+                    <Cell fill={theme.palette.error.main} />
+                  </Pie>
+                  <Legend verticalAlign="top" align="center" />
+                  <Tooltip
+                    formatter={(value: number) => `${value} פניות`}
+                    labelFormatter={(name) => `${name}`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
         </Grid>
-
-        {/* Pie chart */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 420 }}>
-            <Typography variant="h6" sx={{ mb: 2, textAlign: 'right' }}>
-              יחס פניות (אחוזים)
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="58%"
-                  cy="50%"
-                  outerRadius={110}
-                  dataKey="value"
-                  label={({ name, percent }: { name: string; percent?: number }) =>
-                    `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                  }
-                  labelLine={true}
-                >
-                  <Cell fill={theme.palette.primary.main} />
-                  <Cell fill={theme.palette.error.main} />
-                </Pie>
-                <Legend verticalAlign="top" align="center" />
-                <Tooltip
-                  formatter={(value: number) => `${value} פניות`}
-                  labelFormatter={(name) => `${name}`}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
+      </Box>
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +10,7 @@ import {
   ListItemText,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { LoadingContext } from '../App';
 
 const summarySX = {
   flexDirection: 'row-reverse',
@@ -26,6 +27,18 @@ const summarySX = {
 } as const;
 
 const HelpPage: React.FC = () => {
+  const { setLoading } = useContext(LoadingContext);
+
+  useEffect(() => {
+    setLoading(true);
+    // דוגמה: החלף ב-fetch/טעינה האמיתית שלך
+    const fetchData = async () => {
+      // ...existing code for fetching...
+    };
+    fetchData().finally(() => setLoading(false));
+    // eslint-disable-next-line
+  }, []);
+
   return (
     <Box dir="rtl" sx={{ textAlign: 'right', p: 3, maxWidth: 1000, mx: 'auto' }}>
       <Typography variant="h4" sx={{ mb: 4, textAlign: 'center', fontWeight: 'bold' }}>

@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import { getEntityByKey } from '@config/entities';
 import { Box, Typography } from '@mui/material';
 import EntityForm from '@components/EntityForm';
+import Loader from '../../components/Loader';
+import { LoadingContext } from '../../App';
 
 // ✅ Import Firestore connection and functions
 import { db } from '../../firebase';
@@ -11,6 +13,7 @@ import { collection, addDoc } from 'firebase/firestore';
 const EntityCreatePage: React.FC = () => {
   const { entityKey } = useParams();
   const entity = getEntityByKey(entityKey || '');
+  const { setLoading } = useContext(LoadingContext);
 
   // If entity is not found, display a message
   if (!entity) {
@@ -20,16 +23,19 @@ const EntityCreatePage: React.FC = () => {
   // ✅ Function to save data to Firestore
   const handleSave = async (data: any) => {
     try {
+      setLoading(true);
       if (!entityKey) return;
 
       // Add a new document to the Firestore collection that matches the entity key
-      const docRef = await addDoc(collection(db, entityKey), data);
+      await addDoc(collection(db, entityKey), data);
 
-      console.log('✅ Document successfully created with ID:', docRef.id);
+      console.log('✅ Document successfully created with ID:');
       alert('Entity has been successfully added!');
     } catch (error) {
       console.error('❌ Error saving to Firestore:', error);
       alert('An error occurred while saving.');
+    } finally {
+      setLoading(false);
     }
   };
 

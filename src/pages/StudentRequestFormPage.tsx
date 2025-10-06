@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,7 @@ import {
 import { AttachFile, Delete, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { generateEmailFromName } from '@lib/emailGenerator';
+import { LoadingContext } from '../App';
 
 // Firestore imports
 import { db } from '../firebase';
@@ -26,6 +27,7 @@ import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firesto
 
 const StudentRequestFormPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setLoading } = useContext(LoadingContext);
   const [subject, setSubject] = React.useState('');
   const [fullName, setFullName] = React.useState(''); // 👈 new field
   const [details, setDetails] = React.useState('');
@@ -121,6 +123,7 @@ const StudentRequestFormPage: React.FC = () => {
       };
 
       try {
+        setLoading(true);
         // Save to Firestore only
         await addDoc(collection(db, 'requests'), newRequest);
         setSnackbar({ open: true, message: 'הפנייה נשלחה בהצלחה' });
@@ -128,6 +131,8 @@ const StudentRequestFormPage: React.FC = () => {
       } catch (error) {
         console.error('[ERROR saving request]', error);
         setSnackbar({ open: true, message: 'שגיאה בשליחת הפנייה' });
+      } finally {
+        setLoading(false);
       }
     }
   };

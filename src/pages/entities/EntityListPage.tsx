@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEntityByKey } from '@config/entities';
 // ❌ removed: readAll, writeAll, exists
@@ -12,6 +12,8 @@ import { AttachFile, Delete, CloudUpload, Search } from '@mui/icons-material';
 import EntityTable from '@components/EntityTable';
 import { getCreatePath } from '@lib/routing';
 import EmptyState from '@components/EmptyState';
+import Loader from '../../components/Loader';
+import { LoadingContext } from '../../App';
 
 // ✅ Firestore imports (NEW)
 import { db } from '../../firebase';
@@ -27,6 +29,7 @@ import {
 const EntityListPage: React.FC = () => {
   const { entityKey } = useParams();
   const navigate = useNavigate();
+  const { setLoading } = useContext(LoadingContext);
   const [rows, setRows] = React.useState<any[]>([]);
   const [filteredRows, setFilteredRows] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -146,6 +149,16 @@ const EntityListPage: React.FC = () => {
     });
     setFilteredRows(filtered);
   }, [rows, searchTerm]);
+
+  useEffect(() => {
+    setLoading(true);
+    // דוגמה: החלף ב-fetch/טעינה האמיתית שלך
+    const fetchData = async () => {
+      // ...existing code for fetching...
+    };
+    fetchData().finally(() => setLoading(false));
+    // eslint-disable-next-line
+  }, [setLoading]);
 
   if (!entity) {
     return <Typography>ישות לא נמצאה.</Typography>;

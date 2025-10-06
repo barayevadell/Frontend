@@ -1,5 +1,5 @@
 // src/pages/AdminUsersPage.tsx
-import React from 'react';
+import React, { useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -53,6 +53,7 @@ import {
 import { db } from '../firebase';
 
 import { generateEmailFromName } from '@lib/emailGenerator';
+import { LoadingContext } from '../App';
 
 type Role = 'סטודנט' | 'מנהל';
 export interface User {
@@ -70,6 +71,8 @@ type SortField = 'fullName' | 'idNumber' | 'email' | 'role' | 'isActive';
 type SortDirection = 'asc' | 'desc';
 
 const AdminUsersPage: React.FC = () => {
+  const { setLoading } = useContext(LoadingContext);
+
   const [users, setUsers] = React.useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = React.useState<User[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -119,8 +122,10 @@ const AdminUsersPage: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    setLoading(true);
+    loadUsers().finally(() => setLoading(false));
+    // eslint-disable-next-line
+  }, []);
 
   React.useEffect(() => {
     const safeUsers = Array.isArray(users) ? users : [];
