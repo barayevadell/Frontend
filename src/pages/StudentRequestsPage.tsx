@@ -111,16 +111,21 @@ const StudentRequestsPage: React.FC = () => {
 
   // ✅ Load student's requests (real-time from Firestore)
   React.useEffect(() => {
+    if (!user?.idNumber) return; // ✅ prevents crash before user loaded
     const q = query(collection(db, 'requests'), where('idNumber', '==', user.idNumber));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setRows(data);
-    }, (error) => {
-      console.error('[STUDENT REQUESTS] Firestore listener error:', error);
-      setRows([]);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setRows(data);
+      },
+      (error) => {
+        console.error('[STUDENT REQUESTS] Firestore listener error:', error);
+        setRows([]);
+      }
+    );
     return () => unsubscribe();
-  }, [user.idNumber]);
+  }, [user?.idNumber]);
 
   // Filter search results
   React.useEffect(() => {
@@ -131,10 +136,11 @@ const StudentRequestsPage: React.FC = () => {
     }
     const s = searchTerm.toLowerCase();
     setFilteredRows(
-      safeRows.filter((row) =>
-        (row.subject || '').toLowerCase().includes(s) ||
-        (row.details || '').toLowerCase().includes(s) ||
-        (row.status || '').toLowerCase().includes(s)
+      safeRows.filter(
+        (row) =>
+          (row.subject || '').toLowerCase().includes(s) ||
+          (row.details || '').toLowerCase().includes(s) ||
+          (row.status || '').toLowerCase().includes(s)
       )
     );
   }, [rows, searchTerm]);
@@ -183,7 +189,7 @@ const StudentRequestsPage: React.FC = () => {
 
               <TableBody>
                 {filteredRows.map((r, i) => (
-                  <TableRow key={i} hover>
+                  <TableRow key={r.id || i} hover>
                     <TableCell align="left">
                       <Button
                         variant="contained"
@@ -200,13 +206,18 @@ const StudentRequestsPage: React.FC = () => {
                     </TableCell>
 
                     <TableCell align="right">
-                      {r.updatedAt
-                        ? r.updatedAt.toDate().toLocaleDateString('he-IL')
-                        : r.createdAt
-                        ? r.createdAt.toDate().toLocaleDateString('he-IL')
-                        : 'לא זמין'}
+                      {(() => {
+                        try {
+                          const date =
+                            r.updatedAt?.toDate?.() ||
+                            r.createdAt?.toDate?.() ||
+                            new Date(r.updatedAt || r.createdAt);
+                          return date ? new Date(date).toLocaleDateString('he-IL') : 'לא זמין';
+                        } catch {
+                          return 'לא זמין';
+                        }
+                      })()}
                     </TableCell>
-
 
                     <TableCell align="right">{r.status}</TableCell>
                     <TableCell align="right">{r.subject}</TableCell>
