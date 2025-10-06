@@ -22,8 +22,18 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
-import { readAll, writeAll } from '@lib/storage';
 import { useNavigate } from 'react-router-dom';
+
+// ✅ Firestore imports
+import { db } from '../firebase';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  updateDoc,
+} from 'firebase/firestore';
 
 const StudentRequestsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +48,7 @@ const StudentRequestsPage: React.FC = () => {
     message: '',
   });
 
-  // 🔒 בדיקת התחברות
+  // 🔒 Check login
   const isLoggedIn = React.useMemo(() => {
     try {
       const raw = localStorage.getItem('blue-admin:user');
@@ -64,7 +74,7 @@ const StudentRequestsPage: React.FC = () => {
     );
   }
 
-  // אימות תפקיד — סטודנט בלבד
+  // Validate student role
   let user: any = null;
   try {
     user = JSON.parse(localStorage.getItem('blue-admin:user') as string);
@@ -99,27 +109,20 @@ const StudentRequestsPage: React.FC = () => {
     );
   }
 
-  // ✅ טעינת פניות הסטודנט (Firestore – אסינכרוני)
+  // ✅ Load student's requests (real-time from Firestore)
   React.useEffect(() => {
-    (async () => {
-      try {
-        const userStr = localStorage.getItem('blue-admin:user');
-        if (!userStr) return;
-        const userObj = JSON.parse(userStr);
+    const q = query(collection(db, 'requests'), where('idNumber', '==', user.idNumber));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setRows(data);
+    }, (error) => {
+      console.error('[STUDENT REQUESTS] Firestore listener error:', error);
+      setRows([]);
+    });
+    return () => unsubscribe();
+  }, [user.idNumber]);
 
-        const allRequests = await readAll('requests') || [];
-        const studentRequests = allRequests.filter(
-          (r: any) => r && r.idNumber === userObj.idNumber
-        );
-        setRows(studentRequests);
-      } catch (error) {
-        console.error('[STUDENT REQUESTS] Failed to load data:', error);
-        setRows([]);
-      }
-    })();
-  }, []);
-
-  // סינון
+  // Filter search results
   React.useEffect(() => {
     const safeRows = Array.isArray(rows) ? rows : [];
     if (!searchTerm.trim()) {
@@ -138,7 +141,6 @@ const StudentRequestsPage: React.FC = () => {
 
   return (
     <Box>
-      {/* כותרת בימין | כפתור בשמאל */}
       <Box
         dir="rtl"
         sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
@@ -149,7 +151,6 @@ const StudentRequestsPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* חיפוש */}
       <TextField
         fullWidth
         placeholder="חיפוש פניות..."
@@ -200,11 +201,12 @@ const StudentRequestsPage: React.FC = () => {
 
                     <TableCell align="right">
                       {r.updatedAt
-                        ? new Date(r.updatedAt).toLocaleDateString('he-IL')
+                        ? r.updatedAt.toDate().toLocaleDateString('he-IL')
                         : r.createdAt
-                        ? new Date(r.createdAt).toLocaleDateString('he-IL')
+                        ? r.createdAt.toDate().toLocaleDateString('he-IL')
                         : 'לא זמין'}
                     </TableCell>
+
 
                     <TableCell align="right">{r.status}</TableCell>
                     <TableCell align="right">{r.subject}</TableCell>
@@ -214,7 +216,7 @@ const StudentRequestsPage: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {/* דיאלוג פרטי פנייה */}
+          {/* 🔍 Request Details Dialog */}
           <Dialog
             open={dialog.open}
             onClose={() => {
@@ -232,7 +234,6 @@ const StudentRequestsPage: React.FC = () => {
                 <Typography><strong>סטטוס:</strong> {dialog.row?.status}</Typography>
                 <Typography sx={{ mt: 1 }}><strong>תיאור:</strong> {dialog.row?.details}</Typography>
 
-                {/* קבצים מצורפים */}
                 {dialog.row?.attachments && dialog.row.attachments.length > 0 && (
                   <Box sx={{ mt: 2, p: 2, backgroundColor: (t) => t.palette.grey[100], borderRadius: 1 }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>קבצים מצורפים:</Typography>
@@ -285,29 +286,21 @@ const StudentRequestsPage: React.FC = () => {
                       variant="contained"
                       disabled={!replyText.trim()}
                       onClick={async () => {
-                        if (!dialog.row) return;
-                        const data = await readAll('requests') || [];
-                        const idx = data.findIndex(
-                          (x: any) =>
-                            x &&
-                            x.idNumber === dialog.row.idNumber &&
-                            x.createdAt === dialog.row.createdAt
-                        );
-                        if (idx >= 0) {
-                          const updated = { ...data[idx] };
-                          if (!Array.isArray(updated.conversation)) updated.conversation = [];
-                          updated.conversation.push({
+                        if (!dialog.row?.id) return;
+                        const ref = doc(db, 'requests', dialog.row.id);
+                        const updatedConversation = [
+                          ...(dialog.row.conversation || []),
+                          {
                             sender: 'סטודנט',
                             text: replyText.trim(),
-                            timestamp: Date.now(),
-                          });
-                          updated.updatedAt = new Date().toISOString();
-                          data[idx] = updated;
-                          await writeAll('requests', data);
-                          setRows(data.filter((r: any) => r.idNumber === dialog.row.idNumber));
-                          setDialog({ open: true, row: updated });
-                          setSnackbar({ open: true, message: 'ההודעה נשלחה' });
-                        }
+                            timestamp: new Date().toISOString(),
+                          },
+                        ];
+                        await updateDoc(ref, {
+                          conversation: updatedConversation,
+                          updatedAt: new Date().toISOString(),
+                        });
+                        setSnackbar({ open: true, message: 'ההודעה נשלחה' });
                         setReplyText('');
                         setShowReply(false);
                       }}

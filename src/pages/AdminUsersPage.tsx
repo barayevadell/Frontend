@@ -378,14 +378,14 @@ const AdminUsersPage: React.FC = () => {
                     <Chip label={user.role} color={user.role === 'מנהל' ? 'primary' : 'default'} size="small" />
                   </TableCell>
                   <TableCell align="right">
-                    <Chip label={user.isActive ? 'פעיל' : 'לא פעיל'} color={user.isActive ? 'success' : 'error'} size="small" />
+                    <Chip label={user.isActive ? 'פעיל' : 'לא פעיל'} color={user.isActive ? 'success' : 'error'} size="small"  />
                   </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <IconButton size="small" onClick={() => handleEditUser(user)} color="primary">
                         <EditIcon />
                       </IconButton>
-                      <IconButton size="small" onClick={() => handleToggleActive(user)} color={user.isActive ? 'warning' : 'success'}>
+                      <IconButton size="small" onClick={() => handleToggleActive(user)} color={user.isActive ? 'success' : 'warning'}>
                         <PersonIcon />
                       </IconButton>
                       <IconButton size="small" onClick={() => handleDeleteUser(user)} color="error">

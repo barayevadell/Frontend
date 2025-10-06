@@ -16,11 +16,8 @@ import {
 } from '@mui/material';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { readAll, writeAll, writeAllUsers } from '@lib/storage';
-import { ENTITIES } from '@config/entities';
-import { getSeed } from '../data/seed';
+import { readAll } from '@lib/storage';
 import { useNavigate } from 'react-router-dom';
-import { generateEmailFromName } from '@lib/emailGenerator';
 
 type Role = 'סטודנט' | 'מנהל';
 
@@ -59,7 +56,6 @@ const BearAvatar: React.FC<{
               : 'translateY(0)',
         }}
       >
-        {/* אזניים */}
         <div
           style={{
             position: 'absolute',
@@ -82,8 +78,6 @@ const BearAvatar: React.FC<{
             background: '#c6b5f0',
           }}
         />
-
-        {/* פנים */}
         <div
           style={{
             width: 70,
@@ -99,7 +93,6 @@ const BearAvatar: React.FC<{
           {['left', 'right'].map((side) => {
             const isRight = side === 'right';
             const shouldHide = isCover || (isPeek && !isRight);
-
             return (
               <div
                 key={side}
@@ -145,8 +138,6 @@ const BearAvatar: React.FC<{
               </div>
             );
           })}
-
-          {/* אף */}
           <div
             style={{
               position: 'absolute',
@@ -160,11 +151,8 @@ const BearAvatar: React.FC<{
               boxShadow: 'inset 0 -1px 0 0 rgba(0,0,0,0.15)',
             }}
           />
-
-          {/* ידיים */}
           {(isCover || isPeek) && (
             <>
-              {/* יד שמאל */}
               <div
                 style={{
                   position: 'absolute',
@@ -178,7 +166,6 @@ const BearAvatar: React.FC<{
                   transition: 'all 0.4s ease',
                 }}
               />
-              {/* יד ימין - עולה טיפה בהצצה */}
               <div
                 style={{
                   position: 'absolute',
@@ -212,46 +199,11 @@ const Home: React.FC = () => {
   const [eyeProgress, setEyeProgress] = React.useState(0);
   const [avatarState, setAvatarState] = React.useState<'idle' | 'typing' | 'cover' | 'peek'>('idle');
 
+  // ✅ שמרנו רק את משתמשי הדמו לכניסה (לא נוצר כלום במסד)
   const DEMO = {
     admin: { id: '214305047', pass: '123123' },
     student: { id: '213233430', pass: '213213' },
   } as const;
-
-  React.useEffect(() => {
-    const seedDemoData = async () => {
-      try {
-        const users = await readAll('users');
-        if (!Array.isArray(users) || users.length === 0) {
-          const now = new Date().toISOString();
-          const demoUsers = [
-            { idNumber: DEMO.admin.id, fullName: 'ישראל כהן', role: 'מנהל' as Role, password: DEMO.admin.pass },
-            { idNumber: DEMO.student.id, fullName: 'נועם אברהמי', role: 'סטודנט' as Role, password: DEMO.student.pass },
-          ].map((u) => ({
-            ...u,
-            email: generateEmailFromName(u.fullName),
-            isActive: true,
-            createdAt: now,
-            updatedAt: now,
-          }));
-          await writeAllUsers(demoUsers);
-        }
-
-        const requests = await readAll('requests');
-        if (!Array.isArray(requests) || requests.length === 0) {
-          const entity = ENTITIES.find((e) => e.key === 'requests');
-          if (entity) {
-            const seedData = getSeed(entity);
-            if (Array.isArray(seedData) && seedData.length > 0) {
-              await writeAll('requests', seedData);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[HOME] demo seeding failed:', err);
-      }
-    };
-    seedDemoData();
-  }, []);
 
   const toAppRole = (r: Role | string) => (r === 'מנהל' ? 'admin' : 'student');
 
@@ -264,20 +216,22 @@ const Home: React.FC = () => {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    try {
-      if (idNumber === DEMO.admin.id && password === DEMO.admin.pass) {
-        localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'admin', idNumber }));
-        setSuccess(true);
-        setTimeout(() => navigate('/admin/requests'), 600);
-        return;
-      }
-      if (idNumber === DEMO.student.id && password === DEMO.student.pass) {
-        localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'student', idNumber }));
-        setSuccess(true);
-        setTimeout(() => navigate('/student/requests'), 600);
-        return;
-      }
+    // ✅ מאפשר כניסה עם משתמשי הדמו בלבד
+    if (idNumber === DEMO.admin.id && password === DEMO.admin.pass) {
+      localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'admin', idNumber }));
+      setSuccess(true);
+      setTimeout(() => navigate('/admin/requests'), 600);
+      return;
+    }
+    if (idNumber === DEMO.student.id && password === DEMO.student.pass) {
+      localStorage.setItem('blue-admin:user', JSON.stringify({ role: 'student', idNumber }));
+      setSuccess(true);
+      setTimeout(() => navigate('/student/requests'), 600);
+      return;
+    }
 
+    // 🔒 אם מישהו לא דמו – נבדוק אם קיים במשתמשים אמיתיים
+    try {
       const users = await readAll('users');
       const user = Array.isArray(users)
         ? users.find((u: any) => u.idNumber === idNumber && u.password === password)
@@ -301,7 +255,6 @@ const Home: React.FC = () => {
     }
   };
 
-  // 👁️ לוגיקה: אם יש סיסמה מוקלדת → עיניים מכוסות / הצצה, אחרת פתוחות
   React.useEffect(() => {
     if (password.trim().length > 0) {
       if (showPassword) setAvatarState('peek');

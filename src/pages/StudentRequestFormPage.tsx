@@ -18,12 +18,16 @@ import {
 } from '@mui/material';
 import { AttachFile, Delete, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { readAll, writeAll } from '@lib/storage';
 import { generateEmailFromName } from '@lib/emailGenerator';
+
+// Firestore imports
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 const StudentRequestFormPage: React.FC = () => {
   const navigate = useNavigate();
   const [subject, setSubject] = React.useState('');
+  const [fullName, setFullName] = React.useState(''); // 👈 new field
   const [details, setDetails] = React.useState('');
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [errors, setErrors] = React.useState<{ subject?: string; details?: string; file?: string }>({});
@@ -31,12 +35,13 @@ const StudentRequestFormPage: React.FC = () => {
 
   const subjectOptions = ['קורסים', 'מערכת שעות', 'בחינות ועבודות', 'אישורים ומסמכים', 'שכר לימוד', 'אחר'];
 
+  // Get logged-in user from localStorage
   const user = React.useMemo(() => {
     try {
       const raw = localStorage.getItem('blue-admin:user');
-      return raw ? JSON.parse(raw) : { idNumber: '213233430', role: 'סטודנט', name: 'ישראל כהן' };
+      return raw ? JSON.parse(raw) : null;
     } catch {
-      return { idNumber: '213233430', role: 'סטודנט', name: 'ישראל כהן' };
+      return null;
     }
   }, []);
 
@@ -47,9 +52,13 @@ const StudentRequestFormPage: React.FC = () => {
     }
 
     const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif',
-      'application/pdf', 'text/plain',
-      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
     if (!allowedTypes.includes(file.type)) {
       setErrors((e) => ({ ...e, file: 'סוג קובץ לא נתמך. אנא בחרו קובץ תמונה, PDF או מסמך Word' }));
@@ -71,13 +80,15 @@ const StudentRequestFormPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Basic validation
     const nextErrors: { subject?: string; details?: string; file?: string } = {};
     if (!subject.trim()) nextErrors.subject = 'יש לבחור נושא';
     if (!details.trim()) nextErrors.details = 'שדה חובה';
     else if (details.trim().length < 10) nextErrors.details = 'התיאור חייב להכיל לפחות 10 תווים';
     setErrors(nextErrors);
 
-    if (Object.keys(nextErrors).length === 0) {
+    if (Object.keys(nextErrors).length === 0 && user) {
       let attachment = null;
       if (selectedFile) {
         attachment = {
@@ -85,15 +96,14 @@ const StudentRequestFormPage: React.FC = () => {
           name: selectedFile.name,
           size: selectedFile.size,
           type: selectedFile.type,
-          dataURL: null,
         };
       }
 
-      const now = new Date().toISOString();
+      const now = Timestamp.now();
       const newRequest = {
-        idNumber: user.idNumber,
-        name: user.name || 'סטודנט',
-        email: generateEmailFromName(user.name || 'סטודנט'),
+        idNumber: user.idNumber || '',
+        name: fullName || '', // 👈 save entered name
+        email: generateEmailFromName(fullName || ''),
         role: 'סטודנט',
         status: 'פתוחה',
         subject,
@@ -105,15 +115,14 @@ const StudentRequestFormPage: React.FC = () => {
           {
             sender: 'סטודנט',
             text: details.trim() + (attachment ? `\n\n[קובץ מצורף: ${attachment.name}]` : ''),
-            timestamp: Date.now(),
+            timestamp: now,
           },
         ],
       };
 
       try {
-        const existingRequests = (await readAll('requests')) || [];
-        existingRequests.push(newRequest);
-        await writeAll('requests', existingRequests);
+        // Save to Firestore only
+        await addDoc(collection(db, 'requests'), newRequest);
         setSnackbar({ open: true, message: 'הפנייה נשלחה בהצלחה' });
         setTimeout(() => navigate('/student/requests'), 1500);
       } catch (error) {
@@ -141,7 +150,7 @@ const StudentRequestFormPage: React.FC = () => {
       >
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={3}>
-            {/* === נושא === */}
+            {/* === Subject selection === */}
             <FormControl
               fullWidth
               required
@@ -152,17 +161,14 @@ const StudentRequestFormPage: React.FC = () => {
                   right: 24,
                   left: 'auto',
                   transformOrigin: 'top right',
-                },
-                '& .MuiSelect-icon': { left: 12, right: 'auto' },
-                '& .MuiOutlinedInput-notchedOutline': {
-                  direction: 'rtl',
                   textAlign: 'right',
                 },
-                '& legend': {
-                  right: 8,
-                  left: 'auto',
-                  width: 'auto',
+                '& .MuiSelect-select': { textAlign: 'right' },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  textAlign: 'right',
+                  direction: 'rtl',
                 },
+                '& legend': { right: 8, left: 'auto', width: 'auto' },
               }}
             >
               <InputLabel id="subject-label">נושא</InputLabel>
@@ -192,7 +198,33 @@ const StudentRequestFormPage: React.FC = () => {
               )}
             </FormControl>
 
-            {/* === פירוט הפנייה === */}
+            {/* === Full name field === */}
+            <TextField
+              fullWidth
+              label="שם מלא"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  textAlign: 'right',
+                  direction: 'rtl',
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  textAlign: 'right',
+                  direction: 'rtl',
+                },
+                '& legend': { right: 8, left: 'auto', width: 'auto' },
+                '& .MuiInputLabel-root': {
+                  right: 24,
+                  left: 'auto',
+                  transformOrigin: 'top right',
+                },
+              }}
+              inputProps={{ style: { textAlign: 'right', direction: 'rtl' } }}
+            />
+
+            {/* === Request details === */}
             <TextField
               fullWidth
               required
@@ -203,33 +235,26 @@ const StudentRequestFormPage: React.FC = () => {
               onChange={(e) => setDetails(e.target.value)}
               error={Boolean(errors.details)}
               helperText={errors.details || ' '}
-              variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  direction: 'rtl',
                   textAlign: 'right',
+                  direction: 'rtl',
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
-                  direction: 'rtl',
                   textAlign: 'right',
+                  direction: 'rtl',
                 },
-                '& legend': {
-                  right: 8,
-                  left: 'auto',
-                  width: 'auto',
-                },
+                '& legend': { right: 8, left: 'auto', width: 'auto' },
                 '& .MuiInputLabel-root': {
                   right: 24,
                   left: 'auto',
                   transformOrigin: 'top right',
                 },
               }}
-              inputProps={{
-                style: { textAlign: 'right', direction: 'rtl' },
-              }}
+              inputProps={{ style: { textAlign: 'right', direction: 'rtl' } }}
             />
 
-            {/* === העלאת קובץ === */}
+            {/* === File upload === */}
             <Card variant="outlined">
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, textAlign: 'right' }}>
                 <CloudUpload />
@@ -259,7 +284,7 @@ const StudentRequestFormPage: React.FC = () => {
               )}
             </Card>
 
-            {/* === כפתורים === */}
+            {/* === Buttons === */}
             <Stack direction="row-reverse" spacing={2} justifyContent="space-between">
               <Button type="submit" variant="contained">
                 שליחת פנייה
