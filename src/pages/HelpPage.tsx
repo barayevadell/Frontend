@@ -8,7 +8,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
@@ -54,9 +53,9 @@ const HelpPage: React.FC = () => {
                 primary="שדות חובה"
                 secondary={
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• נושא (בחירה מרשימה)</Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• תיאור/פירוט</Typography>
-                    <Typography variant="body2" sx={{ textAlign: 'right' }}>• צרופות (לא חובה)</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• נושא (בחירה מרשימה)</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• תיאור/פירוט</Typography>
+                    <Typography variant="body2">• צרופות (לא חובה)</Typography>
                   </Box>
                 }
                 sx={{ textAlign: 'right' }}
@@ -101,10 +100,10 @@ const HelpPage: React.FC = () => {
                 primary="הוספת תגובה"
                 secondary={
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
                       • סטודנט: כשהסטטוס "פתוחה" או "בטיפול"
                     </Typography>
-                    <Typography variant="body2" sx={{ textAlign: 'right' }}>
+                    <Typography variant="body2">
                       • מנהל: תמיד יכול להגיב
                     </Typography>
                   </Box>
@@ -131,43 +130,11 @@ const HelpPage: React.FC = () => {
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <List sx={{ textAlign: 'right' }}>
-            <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                    <Typography variant="body1" sx={{ textAlign: 'right' }}>נוצרה וממתינה לטיפול</Typography>
-                    <Chip label="פתוחה" color="primary" size="small" />
-                  </Box>
-                }
-                sx={{ textAlign: 'right' }}
-              />
-            </ListItem>
-            <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                    <Typography variant="body1" sx={{ textAlign: 'right' }}>
-                      נפתחה/יש תגובה ממנהל (נפתח אוטומטית בעת צפייה/תגובה של מנהל)
-                    </Typography>
-                    <Chip label="בטיפול" color="warning" size="small" />
-                  </Box>
-                }
-                sx={{ textAlign: 'right' }}
-              />
-            </ListItem>
-            <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                    <Typography variant="body1" sx={{ textAlign: 'right' }}>הטיפול הסתיים; ההתכתבות לקריאה בלבד</Typography>
-                    <Chip label="נסגרה" color="error" size="small" />
-                  </Box>
-                }
-                sx={{ textAlign: 'right' }}
-              />
-            </ListItem>
-          </List>
+          <Box sx={{ textAlign: 'right', pr: 2, direction: 'rtl' }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>• פתוחה – הפנייה נוצרה וממתינה לטיפול.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• בטיפול – מנהל פתח את הפנייה או הגיב עליה; הפנייה בטיפול פעיל.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• נסגרה – הטיפול הסתיים והפנייה ננעלה לקריאה בלבד.</Typography>
+          </Box>
         </AccordionDetails>
       </Accordion>
 
@@ -179,24 +146,17 @@ const HelpPage: React.FC = () => {
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <List sx={{ textAlign: 'right' }}>
-            <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText
-                primary="נושאים קבועים"
-                secondary={
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1, justifyContent: 'flex-end' }}>
-                    {['קורסים', 'מערכת שעות', 'בחינות ועבודות', 'אישורים ומסמכים', 'שכר לימוד'].map((subject) => (
-                      <Chip key={subject} label={subject} variant="outlined" size="small" />
-                    ))}
-                  </Box>
-                }
-                sx={{ textAlign: 'right' }}
-              />
-            </ListItem>
-            <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText primary="אחר" secondary="ניתן להזין נושא חופשי" sx={{ textAlign: 'right' }} />
-            </ListItem>
-          </List>
+          <Box sx={{ textAlign: 'right', pr: 2, direction: 'rtl' }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>• קורסים – שאלות על תכני קורס, מרצים, ציונים או חומרי למידה.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• מערכת שעות – בירורים על מערכת שעות, שינויים או התנגשויות.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• בחינות ועבודות – בקשות להארכה, בירור ציונים או מועדים מיוחדים.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• אישורים ומסמכים – הנפקת אישורי לימודים, אישורי סיום או תעודות.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• שכר לימוד – בירור תשלומים, הנחות, מלגות או חשבוניות.</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>• אחר – נושא חופשי שאינו נכלל באחת הקטגוריות הקודמות.</Typography>
+            <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
+              ניתן לפרט ולהרחיב את הנושא בתוך הפנייה עצמה.
+            </Typography>
+          </Box>
         </AccordionDetails>
       </Accordion>
 
@@ -213,12 +173,12 @@ const HelpPage: React.FC = () => {
               <ListItemText
                 primary="מה רואים בלשונית הסטטיסטיקה"
                 secondary={
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• סה״כ פניות</Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• פתוחות</Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• נסגרו</Typography>
-                    <Typography variant="body2" sx={{ mb: 1, textAlign: 'right' }}>• זמן תגובה ממוצע</Typography>
-                    <Typography variant="body2" sx={{ textAlign: 'right' }}>• גרף עמודות</Typography>
+                  <Box sx={{ textAlign: 'right', direction: 'rtl' }}>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• סה״כ פניות</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• פתוחות</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• נסגרו</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>• זמן תגובה ממוצע</Typography>
+                    <Typography variant="body2">• גרף עמודות</Typography>
                   </Box>
                 }
                 sx={{ textAlign: 'right' }}
@@ -240,7 +200,7 @@ const HelpPage: React.FC = () => {
             <ListItem sx={{ textAlign: 'right' }}>
               <ListItemText
                 primary="שמירת נתונים"
-                secondary="הנתונים נשמרים מקומית (localStorage) לתרגול/דמו"
+                secondary="הנתונים נשמרים במאגר Firestore מאובטח של Google, תוך הקפדה על פרטיות ואבטחת מידע מלאה."
                 sx={{ textAlign: 'right' }}
               />
             </ListItem>
@@ -257,14 +217,38 @@ const HelpPage: React.FC = () => {
         </AccordionSummary>
         <AccordionDetails>
           <List sx={{ textAlign: 'right' }}>
+            {/* שאלות קיימות */}
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText primary="למה איני רואה פניות?" secondary="ייתכן שאין פניות עבור המשתמש הנוכחי" sx={{ textAlign: 'right' }} />
+              <ListItemText primary="למה איני רואה פניות?" secondary="ייתכן שאין פניות עבור המשתמש הנוכחי" />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText primary="כיצד לעדכן סטטוס?" secondary="מנהל: דרך דיאלוג ההצגה, 'סגור/י פנייה'" sx={{ textAlign: 'right' }} />
+              <ListItemText primary="כיצד לעדכן סטטוס?" secondary="מנהל: דרך דיאלוג ההצגה, 'סגור/י פנייה'" />
             </ListItem>
             <ListItem sx={{ textAlign: 'right' }}>
-              <ListItemText primary="מגבלת גודל קובץ ופורמטים" secondary="עד 5MB, תמונות (JPG, PNG, GIF), PDF, Word, טקסט" sx={{ textAlign: 'right' }} />
+              <ListItemText primary="מגבלת גודל קובץ ופורמטים" secondary="עד 5MB, תמונות (JPG, PNG, GIF), PDF, Word, טקסט" />
+            </ListItem>
+
+            {/* שאלות חדשות */}
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="איך יודעים אם פנייה נשלחה בהצלחה?" secondary="לאחר השליחה תופיע הודעה 'הפנייה הוגשה' והפנייה תופיע ברשימת הפניות שלך." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="האם ניתן לבטל פנייה שנשלחה בטעות?" secondary="לא ניתן לבטל פנייה לאחר השליחה, אך ניתן להוסיף תגובה למנהל עם בקשה לביטול." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="האם ניתן לפתוח כמה פניות במקביל?" secondary="כן, אין הגבלה על מספר הפניות הפעילות בו־זמנית." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="מה קורה אם הקובץ לא נטען?" secondary="בדוק את גודל הקובץ והפורמט. אם עדיין לא עובד – נסה לרענן את הדפדפן או לפתוח ממחשב אחר." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="האם אפשר להוסיף תגובה אחרי שהפנייה נסגרה?" secondary="לא. פנייה סגורה נועדה לקריאה בלבד." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="המערכת לא נטענת / נתקעת – מה לעשות?" secondary="נסה לרענן את העמוד או לנקות את ה־cache של הדפדפן. אם זה לא עוזר – פנה לתמיכה." />
+            </ListItem>
+            <ListItem sx={{ textAlign: 'right' }}>
+              <ListItemText primary="יש לי הצעה לשיפור – איך אפשר לדווח?" secondary='ניתן לפתוח פנייה חדשה תחת הנושא "אחר" ולפרט את ההצעה שלך.' />
             </ListItem>
           </List>
         </AccordionDetails>
