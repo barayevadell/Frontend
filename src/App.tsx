@@ -48,6 +48,12 @@ const RouteLogger: React.FC = () => {
 const App: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
 
+  // דוגמה לשימוש במשתנה סביבה
+  React.useEffect(() => {
+    // לדוג' VITE_API_URL או כל משתנה אחר שהגדרת
+    console.log('API URL:', import.meta.env.VITE_API_URL);
+  }, []);
+
   return (
     <LoadingContext.Provider value={{ loading, setLoading }}>
       <BrowserRouter>

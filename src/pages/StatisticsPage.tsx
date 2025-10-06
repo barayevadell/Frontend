@@ -205,7 +205,11 @@ const StatisticsPage: React.FC = () => {
           textAlign: 'right',
         }}
       >
-        <Typography variant="h4" sx={{ mb: 3 }}>
+        <Typography
+          variant="h4"
+          sx={{ mb: 3 }}
+          className="text-3xl font-bold text-purple-700 mb-6"
+        >
           סטטיסטיקה
         </Typography>
 
